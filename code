@@ -1,0 +1,157 @@
+---
+title: "Classification modeling in R with tidymodels"
+author: "Chad Allison"
+date: "11 February 2022"
+output:
+  html_document:
+    theme: cosmo
+---
+
+```{r message = F, warning = F, include = F}
+library(tidyverse)
+library(tidymodels)
+library(gt)
+library(visdat)
+
+knitr::opts_chunk$set(message = F, warning = F, fig.align = "center",
+                      )
+options(scipen = 999)
+```
+
+___
+
+### Business understanding
+
+The goal of this project is to build a classification model to predict the type of median housing prices in districts of California. I will use CA census data to train the model and predict if the median house price in a certain district is above or below a certain threshold when given some predictor variables. This is a **supervised learning** situation and I will use a **classification model** to predict the categorical outcomes (above or below the specified threshold). I will use the F1 score as a performance measure for this classification problem 
+
+___
+
+### Data understanding
+
+In this step, I will do the following.
+
+- Import the data
+- Clean the data
+- Re-format the data
+- Create new variables
+- Split data into training/testing sets
+- Explore and visualise the data
+
+___
+
+##### Importing the data
+
+Along with the data import, here are the R packages I will be using to complete this analysis.
+
+- `tidyverse`
+- `tidymodels`
+- `gt`
+- `visdat`
+
+```{r}
+url = "https://raw.githubusercontent.com/kirenz/datasets/master/housing_unclean.csv"
+housing_df = read_csv(url, col_types = cols())
+```
+
+___
+
+##### Cleaning the data
+
+To get a quick first impression, I will look at the first five rows of the data.
+
+```{r}
+housing_df |>
+  head(5) # |>
+  # gt()
+```
+
+One thing I notice is that the first values of the `housing_median_age` and `median_house_value` columns have the characters "years" and "$" respectively. Since I want these to be treated as numeric variables, I will use the `str_remove_all` function to remove these characters.
+
+```{r}
+housing_df = housing_df |>
+  mutate(housing_median_age = str_remove_all(housing_median_age, "[years]"),
+         median_house_value = str_remove_all(median_house_value, "[$]"))
+```
+
+___
+
+##### Formatting the data
+
+I need to make sure all the variables are in the correct format for analysis. I want all of my numeric variables to be either the `int` or `dbl` data types and I likely want all my categorical variables -- whether they be characters or numeric -- to be saved as the `fctr` data type.
+
+```{r}
+glimpse(housing_df)
+```
+
+The `glimpse()` function is helpful to get an overview of the data, but visualising it will be helpful as well.
+
+```{r}
+vis_dat(housing_df) +
+  scale_fill_manual(values = c("indianred3", "springgreen4"))
+```
+
+With this, I can observe that both `housing_median_age` and `median_house_value` (the variables I modified earlier) are character variables when I want them to be numeric. I will use the `as.numeric()` function on them to make them numeric.
+
+Looking at the `ocean_proximity` variable, I likely want to change it to a factor. I can take a glance at the different levels of the variable.
+
+```{r}
+housing_df |>
+  count(ocean_proximity,
+        sort = T)
+```
+
+Since the variable only has five levels, I will make it a factor. I will now change the `housing_median_age` and `median_house_value` variables to be numeric along with making the rest of the character variables factors using the `across()` function (the only character variable remaining will be the `ocean_proximity` variable, but it is still good practice to use the `across()` function).
+
+```{r}
+housing_df = housing_df |>
+  mutate(housing_median_age = as.numeric(housing_median_age),
+         median_house_value = as.numeric(median_house_value),
+         across(where(is.character), as.factor))
+```
+
+Now, using the `vis_dat()` function again, I will confirm that my data is formatted properly.
+
+```{r}
+vis_dat(housing_df) +
+  scale_fill_manual(values = c("indianred3", "springgreen4"))
+```
+
+___
+
+##### Missing data
+
+Turning my attention to any missing data, I will use the `vis_miss()` function to see where I have missing values.
+
+```{r}
+vis_miss(housing_df, sort_miss = T)
+```
+
+It appears the only column with missing values is the `total_bedrooms` variable. I will confirm this numerically.
+
+```{r}
+is.na(housing_df) |>
+  colSums()
+```
+
+I have now confirmed that the `total_bedrooms` variable is the only one with missing values, and it is missing 207 values which is only 1% of the total values in that variable. Despite this small number, I will take care of these values during the data preparation phase so that the missing values do not mess up any algorithms.
+
+___
+
+##### Creating new variables
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
