@@ -13,10 +13,11 @@ library(tidymodels)
 library(gt)
 library(visdat)
 
-knitr::opts_chunk$set(message = F, warning = F, fig.align = "center",
-                      )
+knitr::opts_chunk$set(message = F, warning = F, fig.align = "center")
 options(scipen = 999)
 ```
+
+Disclaimer: To complete this project, I am following the following [tutorial](https://www.kirenz.com/post/2021-02-17-r-classification-tidymodels/) from [Jan Kirenz](https://www.kirenz.com/authors/jan/).
 
 ___
 
@@ -61,8 +62,8 @@ To get a quick first impression, I will look at the first five rows of the data.
 
 ```{r}
 housing_df |>
-  head(5) # |>
-  # gt()
+  head(5) |>
+  gt()
 ```
 
 One thing I notice is that the first values of the `housing_median_age` and `median_house_value` columns have the characters "years" and "$" respectively. Since I want these to be treated as numeric variables, I will use the `str_remove_all` function to remove these characters.
@@ -139,6 +140,46 @@ ___
 
 ##### Creating new variables
 
+Here, I will create a few variables that may be useful for analysis. The number of rooms in a district isn't as useful if we don't know how many households there are, so I will calculate the number of rooms per household. Also, the number of bedrooms is probably more useful when compared to the total number of rooms in the house. It may also be interesting to consider the population per household.
+
+```{r}
+housing_df = housing_df |>
+  mutate(rooms_per_household = total_rooms / households,
+         bedrooms_per_room = total_bedrooms / total_rooms,
+         population_per_household = population / households)
+```
+
+In order to make this a classification problem, I will also create the dependent variable and remove the original numeric variable (since I use the `median_house_value` variable to create the `price_category` variable, it is essential that I must remove it).
+
+```{r}
+housing_df = housing_df |>
+  mutate(price_category = case_when(median_house_value < 150000 ~ "below",
+                                    median_house_value >= 150000 ~ "above"),
+         price_category = as.factor(price_category)) |>
+  select(-median_house_value)
+```
+
+Now I will take a quick glance at the distribution of the dependent variable `price_category`, using the `gt()` package to make a good looking table.
+
+```{r}
+housing_df |>
+  count(price_category,
+        name = "districts_total") |>
+  mutate(percent = districts_total / sum(districts_total) * 100,
+         percent = round(percent, 2)) |>
+  gt() |>
+  tab_header(title = "California median house prices",
+             subtitle = "Districts above and below $150,000") |>
+  cols_label(price_category = "Price",
+             districts_total = "Districts",
+             percent = "Percent") |>
+  fmt_number(columns = districts_total,
+             suffixing = T)
+```
+
+___
+
+### Data overview
 
 
 
