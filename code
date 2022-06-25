@@ -12,6 +12,7 @@ library(tidyverse)
 library(tidymodels)
 library(gt)
 library(visdat)
+library(skimr)
 
 knitr::opts_chunk$set(message = F, warning = F, fig.align = "center")
 options(scipen = 999)
@@ -159,7 +160,7 @@ housing_df = housing_df |>
   select(-median_house_value)
 ```
 
-Now I will take a quick glance at the distribution of the dependent variable `price_category`, using the `gt()` package to make a good looking table.
+<!-- Now I will take a quick glance at the distribution of the dependent variable `price_category`, using the `gt()` package to make a good looking table. -->
 
 ```{r}
 housing_df |>
@@ -181,18 +182,292 @@ ___
 
 ### Data overview
 
+```{r}
+skim(housing_df)
+```
 
+```{r}
+library(GGally)
 
+housing_df |>
+  select(housing_median_age, median_income, bedrooms_per_room,
+         rooms_per_household, population_per_household) |>
+  ggscatmat(alpha = 0.2)
+```
 
+```{r}
+housing_df |>
+  sample_n(nrow(housing_df) * 0.1) |>
+  select(housing_median_age, median_income, bedrooms_per_room,
+         rooms_per_household, population_per_household,
+         ocean_proximity, price_category) |>
+  ggpairs()
+```
 
+### Data splitting
 
+```{r}
+housing_df |>
+  ggplot(aes(price_category)) +
+  geom_bar(fill = "springgreen4", alpha = 0.75) +
+  theme_minimal()
+```
 
+```{r}
+set.seed(123)
 
+data_split = initial_split(housing_df,
+                           prop = 0.75,
+                           strata = price_category)
 
+train_data = training(data_split)
+test_data = testing(data_split)
+```
 
+```{r}
+data_explore = train_data
 
+data_explore |>
+  ggplot(aes(longitude, latitude)) +
+  geom_point(col = "cornflowerblue") +
+  theme_minimal()
 
+data_explore |>
+  ggplot(aes(longitude, latitude)) +
+  geom_point(col = "cornflowerblue", alpha = 0.1) +
+  theme_minimal()
+```
 
+```{r}
+data_explore |>
+  ggplot(aes(longitude, latitude)) +
+  geom_point(aes(size = population, col = price_category),
+             alpha = 0.4) +
+  theme_minimal()
+```
 
+```{r}
+library(ggmap)
 
+qmplot(x = longitude, y = latitude, data = data_explore,
+       geom = "point", col = price_category, size = population,
+       alpha = 0.4) +
+  scale_alpha(guide = "none")
+```
 
+```{r}
+# data_explore |>
+#   ggplot(aes(price_category, median_income)) +
+#   geom_boxplot(aes(fill = price_category, col = price_category),
+#                alpha = 0.4) +
+#   theme_minimal()
+
+data_explore |>
+  ggplot(aes(price_category, median_income)) +
+  geom_violin(aes(fill = price_category, col = price_category),
+              alpha = 0.4) +
+  theme_minimal()
+```
+
+```{r}
+print_boxplot = function(.y_var) {
+  
+  y_var = sym(.y_var)
+  
+  data_explore |>
+    ggplot(aes(price_category, {{y_var}},
+               fill = price_category, col = price_category)) +
+    geom_violin(alpha = 0.4) +
+    theme_minimal()
+  
+}
+
+y_var = data_explore |>
+  select(where(is.numeric), -longitude, -latitude) |>
+  variable.names()
+
+library(purrr)
+
+map(y_var, print_boxplot)
+```
+
+```{r}
+print_boxplot_out = function(.y_var_out) {
+  
+  y_var = sym(.y_var_out)
+  
+  data_explore |>
+    filter(rooms_per_household < 50, population_per_household < 20) |>
+    ggplot(aes(price_category, y = {{y_var}},
+               fill = price_category, col = price_category)) +
+    geom_violin(alpha = 0.4) +
+    theme_minimal()
+  
+}
+
+y_var_out = data_explore |>
+  select(rooms_per_household, population_per_household) |>
+  variable.names()
+
+map(y_var_out, print_boxplot_out)[[1]]
+map(y_var_out, print_boxplot_out)[[2]]
+```
+
+```{r}
+data_explore |>
+  sample_n(nrow(data_explore) * 0.25) |>
+  select(price_category, median_income, bedrooms_per_room,
+         rooms_per_household, population_per_household) |>
+  ggscatmat(color = "price_category",
+            corMethod = "spearman",
+            alpha = 0.2)
+```
+
+```{r}
+library(gt)
+
+data_explore |>
+  count(price_category, ocean_proximity) |>
+  group_by(price_category) |>
+  mutate(percent = n / sum(n) * 100,
+         percent = round(percent, 2)) |>
+  gt() |>
+  tab_header(title = "California median house prices",
+             subtitle = "Districts above and below $150,000") |>
+  cols_label(ocean_proximity = "Ocean Proximity",
+             n = "Districts",
+             percent = "Percent") |>
+  fmt_number(columns = vars(n),
+             suffixing = T)
+```
+
+```{r}
+data_explore |>
+  ggplot(aes(price_category, ocean_proximity)) +
+  geom_bin2d() +
+  scale_fill_continuous(type = "viridis") +
+  theme_minimal()
+```
+
+# Data Preparation
+
+### Data prep
+
+```{r}
+housing_df_new = housing_df |>
+  select(longitude, latitude, price_category, median_income,
+         ocean_proximity, bedrooms_per_room, rooms_per_household,
+         population_per_household)
+
+glimpse(housing_df_new)
+```
+
+```{r}
+set.seed(123)
+
+data_split = initial_split(housing_df_new,
+                           prop = 0.75,
+                           strata = price_category)
+
+train_data = training(data_split)
+test_data = testing(data_split)
+```
+
+### Data pre-processing recipe
+
+```{r}
+housing_rec = recipe(price_category ~ .,
+                     data = train_data) |>
+  update_role(longitude, latitude,
+              new_role = "ID") |>
+  step_log(median_income, bedrooms_per_room, rooms_per_household,
+           population_per_household) |>
+  step_naomit(everything(), skip = T) |>
+  step_novel(all_nominal(), -all_outcomes()) |>
+  step_normalize(all_numeric(), -all_outcomes(),
+                 -longitude, -latitude) |>
+  step_dummy(all_nominal(), -all_outcomes()) |>
+  step_zv(all_numeric(), -all_outcomes()) |>
+  step_corr(all_predictors(), threshold = 0.7, method = "spearman")
+
+summary(housing_rec)
+```
+
+```{r}
+prepped_data = housing_rec |>
+  prep() |>
+  juice()
+
+glimpse(prepped_data)
+```
+
+```{r message = F, warning = F}
+prepped_data |>
+  sample_n(nrow(prepped_data) * 0.25) |>
+  select(price_category, median_income, rooms_per_household,
+         population_per_household) |>
+  ggscatmat(corMethod = "spearman",
+            alpha = 0.2)
+```
+
+### Validation set
+
+```{r}
+set.seed(100)
+
+cv_folds = vfold_cv(train_data,
+                    v = 5,
+                    strata = price_category)
+```
+
+# Model Building
+
+### Logistic regression
+
+```{r}
+log_spec = logistic_reg() |>
+  set_engine(engine = "glm") |>
+  set_mode("classification")
+
+log_spec
+```
+
+### Random forest
+
+```{r}
+library(ranger)
+
+rf_spec = rand_forest() |>
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("classification")
+```
+
+### Boosted tree (XGBoost)
+
+```{r}
+library(xgboost)
+
+xgb_spec = boost_tree() |>
+  set_engine("xgboost") |>
+  set_mode("classification")
+```
+
+### K-nearest neighbor
+
+```{r}
+knn_spec = nearest_neighbor(neighbors = 4) |>
+  set_engine("kknn") |>
+  set_mode("classification")
+```
+
+### Neural network
+
+```{r}
+library(keras)
+
+nnet_spec = mlp() |>
+  set_mode("classification") |>
+  set_engine("keras", verbose = 0)
+```
+
+leave off at 4.2 create workflows
