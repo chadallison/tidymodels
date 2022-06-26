@@ -85,7 +85,7 @@ I need to make sure all the variables are in the correct format for analysis. I 
 glimpse(housing_df)
 ```
 
-The `glimpse()` function is helpful to get an overview of the data, but visualising it will be helpful as well.
+The `glimpse()` function is helpful to get an overview of the data, but visualizing it will be helpful as well.
 
 ```{r}
 vis_dat(housing_df) +
@@ -470,4 +470,269 @@ nnet_spec = mlp() |>
   set_engine("keras", verbose = 0)
 ```
 
-leave off at 4.2 create workflows
+### Create workflows
+
+```{r}
+log_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(log_spec)
+
+log_wflow
+```
+
+### Random forest
+
+```{r}
+rf_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(rf_spec)
+
+rf_wflow
+```
+
+### XGBoost
+
+```{r}
+xgb_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(xgb_spec)
+
+xgb_wflow
+```
+
+### K-nearest neighbor
+
+```{r}
+knn_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(knn_spec)
+
+knn_wflow
+```
+
+### Neural network
+
+```{r}
+nnet_workflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(nnet_spec)
+
+nnet_workflow
+```
+
+### Evaluate models
+
+```{r}
+log_res = log_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas, accuracy, kap,
+                                     roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+```
+
+```{r}
+get_model = function(x) {
+  extract_fit_parsnip(x) |>
+    tidy()
+}
+
+log_res_2 = log_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap,
+                                     roc_auc, sens, spec),
+                control = control_resamples(save_pred = T,
+                                            extract = get_model))
+
+all_coef = map_dfr(log_res_2$.extracts, ~ .x[[1]][[1]])
+filter(all_coef, term == "median_income")
+```
+
+```{r}
+log_res |>
+  collect_metrics(summarize = T) |>
+  mutate(mean = round(mean, 3))
+```
+
+### Collect predictions
+
+```{r}
+log_pred = log_res |>
+  collect_predictions()
+
+log_pred |>
+  conf_mat(price_category, .pred_class) |>
+  autoplot(type = "heatmap")
+```
+
+### ROC Curve
+
+```{r}
+log_pred |>
+  group_by(id) |>
+  roc_curve(price_category, .pred_above) |>
+  autoplot()
+```
+
+### Probability distributions
+
+```{r}
+log_pred |>
+  ggplot(aes(.pred_above)) +
+  geom_density(aes(fill = price_category), alpha = 0.5) +
+  theme_minimal()
+```
+
+### Random forest
+
+```{r}
+rf_res = rf_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap,
+                                     roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+rf_res |>
+  collect_metrics(summarize = T) |>
+  mutate(mean = round(mean, 3))
+```
+
+### XGBoost
+
+```{r}
+xgb_res = xgb_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap,
+                                     roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+xgb_res |>
+  collect_metrics(summarize = T) |>
+  mutate(mean = round(mean, 3))
+```
+
+### K-nearest neighbor
+
+```{r}
+knn_res = knn_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap,
+                                     roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+knn_res |>
+  collect_metrics(summarize = T) |>
+  mutate(mean = round(mean, 3))
+```
+
+### Neutal network
+
+```{r}
+nnet_res = nnet_workflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap,
+                                     roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+# to get this to work, maybe install tensorflow package
+```
+
+### Compare models
+
+```{r}
+log_metrics = log_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "Logistic Regression")
+
+rf_metrics = rf_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "Random Forest")
+
+xgb_metrics = xgb_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "XGBoost")
+
+knn_metrics = knn_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "Knn")
+
+model_compare = bind_rows(log_metrics, rf_metrics, xgb_metrics, knn_metrics)
+
+model_comp = model_compare |>
+  select(model, .metric, mean, std_err) |>
+  pivot_wider(names_from = .metric, values_from = c(mean, std_err))
+
+model_comp |>
+  arrange(mean_f_meas) |>
+  mutate(model = fct_reorder(model, mean_f_meas)) |>
+  ggplot(aes(model, mean_f_meas)) +
+  geom_col(aes(fill = model)) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Blues") +
+  geom_text(size = 3, aes(label = round(mean_f_meas, 2),
+                          y = mean_f_meas + 0.08),
+            vjust = 1) +
+  theme_minimal()
+```
+
+```{r}
+model_comp |>
+  arrange(mean_roc_auc) |>
+  mutate(model = fct_reorder(model, mean_roc_auc)) |>
+  ggplot(aes(model, mean_roc_auc)) +
+  geom_col(aes(fill = model)) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Greens") +
+  geom_text(size = 3, aes(label = round(mean_roc_auc, 2),
+                          y = mean_roc_auc + 0.08),
+            vjust = 1) +
+  theme_minimal()
+```
+
+```{r}
+model_comp |>
+  slice_max(mean_f_meas)
+```
+
+### Last evaluation on test set
+
+```{r}
+last_fit_rf = last_fit(rf_wflow,
+                       split = data_split,
+                       metrics = metric_set(recall, precision, f_meas,
+                                            accuracy, kap,
+                                            roc_auc, sens, spec))
+
+last_fit_rf |>
+  collect_metrics() |>
+  mutate(.estimate = round(.estimate, 3))
+```
+
+```{r}
+library(vip)
+
+last_fit_rf |>
+  pluck(".workflow", 1) |>
+  extract_fit_parsnip() |>
+  vip(num_features = 10) +
+  theme_minimal()
+```
+
+```{r}
+last_fit_rf |>
+  collect_predictions() |>
+  conf_mat(price_category, .pred_class) |>
+  autoplot(type = "heatmap")
+```
+
+```{r}
+last_fit_rf |>
+  collect_predictions() |>
+  roc_curve(price_category, .pred_above) |>
+  autoplot()
+```
+
