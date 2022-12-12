@@ -6,10 +6,15 @@ output: github_document
 
 ___
 
-### loading required libraries
+### loading required libraries and setting options
 
 ```{r message = F, warning = F}
-library(tidyverse)
+library(tidyverse) # essential functions
+library(visdat) # visualising data class structure
+
+knitr::opts_chunk$set(message = F, warning = F)
+options(scipen = 999)
+theme_set(theme_minimal())
 ```
 
 ___
@@ -36,6 +41,102 @@ housing_df |>
   select(housing_median_age, median_house_value) |>
   head()
 ```
+
+___
+
+### viewing data structure
+
+```{r}
+glimpse(housing_df)
+```
+
+___
+
+### visualising data structure
+
+```{r}
+vis_dat(housing_df) +
+  scale_fill_manual(values = c("#8BB895", "#B494C6"))
+```
+
+___
+
+### exploring `ocean_proximity` variable
+
+```{r}
+housing_df |>
+  count(ocean_proximity,
+        sort = T)
+```
+
+___
+
+### reformatting variables
+
+```{r}
+housing_df = housing_df |>
+  mutate(housing_median_age = as.numeric(housing_median_age),
+         median_house_value = as.numeric(median_house_value),
+         across(where(is.character), as.factor))
+
+vis_dat(housing_df) +
+  scale_fill_manual(values = c("#8BB895", "#B494C6"))
+```
+
+___
+
+### checking missing data
+
+```{r}
+housing_df |>
+  vis_miss(sort_miss = T)
+```
+
+___
+
+### seeing exactly how many `NA` values we have
+
+```{r}
+colSums(is.na(housing_df))
+```
+
+___
+
+### creating new variables
+
+```{r}
+housing_df = housing_df |>
+  mutate(rooms_per_household = round(total_rooms / households, 4),
+         bedrooms_per_room = round(total_bedrooms / total_rooms, 4),
+         population_per_household = round(population / households), 4)
+
+housing_df |>
+  select(rooms_per_household, bedrooms_per_room, population_per_household) |>
+  head()
+```
+
+___
+
+### creating dependent variable and dropping original numeric variable
+
+```{r}
+housing_df = housing_df |>
+  mutate(price_category = case_when(median_house_value < 150000 ~ "below",
+                                    median_house_value >= 150000 ~ "above"),
+         price_category = as.factor(price_category)) |>
+  select(-median_house_value)
+
+housing_df |>
+  count(price_category)
+```
+
+___
+
+### xxx
+
+
+
+
 
 
 
