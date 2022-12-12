@@ -1,0 +1,69 @@
+---
+title: "classification with tidymodels"
+author: "chad allison | 12 december 2022"
+output: github_document
+---
+
+___
+
+### loading required libraries
+
+```{r message = F, warning = F}
+library(tidyverse)
+```
+
+___
+
+### importing data
+
+```{r}
+link = "https://raw.githubusercontent.com/kirenz/datasets/master/housing_unclean.csv"
+housing_df = read_csv(link, col_types = cols())
+
+head(housing_df)
+```
+
+___
+
+### cleaning `housing_median_age` and `median_house_value`
+
+```{r}
+housing_df = housing_df |>
+  mutate(housing_median_age = str_remove_all(housing_median_age, "[years]"),
+         median_house_value = str_remove_all(median_house_value, "[$]"))
+
+housing_df |>
+  select(housing_median_age, median_house_value) |>
+  head()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
