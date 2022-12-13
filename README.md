@@ -8,7 +8,10 @@ chad allison \| 12 december 2022
 
 ``` r
 library(tidyverse) # essential functions
+library(tidymodels) # essential for tidy modeling
 library(visdat) # visualising data class structure
+library(skimr) # data skimming
+library(GGally) # pairwise plots
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -22,6 +25,7 @@ theme_set(theme_minimal())
 ``` r
 link = "https://raw.githubusercontent.com/kirenz/datasets/master/housing_unclean.csv"
 housing_df = read_csv(link, col_types = cols())
+rm(link)
 
 head(housing_df)
 ```
@@ -193,15 +197,112 @@ housing_df = housing_df |>
   select(-median_house_value)
 
 housing_df |>
-  count(price_category)
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 3))
 ```
 
-    ## # A tibble: 2 x 2
-    ##   price_category     n
-    ##   <fct>          <int>
-    ## 1 above          13084
-    ## 2 below           7556
+    ## # A tibble: 2 x 3
+    ##   price_category     n  prop
+    ##   <fct>          <int> <dbl>
+    ## 1 above          13084 0.634
+    ## 2 below           7556 0.366
 
 ------------------------------------------------------------------------
 
-### xxx
+### data overview with `skimr`
+
+``` r
+skim(housing_df)
+```
+
+|                                                  |            |
+|:-------------------------------------------------|:-----------|
+| Name                                             | housing_df |
+| Number of rows                                   | 20640      |
+| Number of columns                                | 14         |
+| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_   |            |
+| Column type frequency:                           |            |
+| factor                                           | 2          |
+| numeric                                          | 12         |
+| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ |            |
+| Group variables                                  | None       |
+
+Data summary
+
+**Variable type: factor**
+
+| skim_variable   | n_missing | complete_rate | ordered | n_unique | top_counts                                  |
+|:----------------|----------:|--------------:|:--------|---------:|:--------------------------------------------|
+| ocean_proximity |         0 |             1 | FALSE   |        5 | \<1H: 9136, INL: 6551, NEA: 2658, NEA: 2290 |
+| price_category  |         0 |             1 | FALSE   |        2 | abo: 13084, bel: 7556                       |
+
+**Variable type: numeric**
+
+| skim_variable            | n_missing | complete_rate |    mean |      sd |      p0 |     p25 |     p50 |     p75 |     p100 | hist  |
+|:-------------------------|----------:|--------------:|--------:|--------:|--------:|--------:|--------:|--------:|---------:|:------|
+| longitude                |         0 |          1.00 | -119.57 |    2.00 | -124.35 | -121.80 | -118.49 | -118.01 |  -114.31 | ▂▆▃▇▁ |
+| latitude                 |         0 |          1.00 |   35.63 |    2.14 |   32.54 |   33.93 |   34.26 |   37.71 |    41.95 | ▇▁▅▂▁ |
+| housing_median_age       |         0 |          1.00 |   28.64 |   12.59 |    1.00 |   18.00 |   29.00 |   37.00 |    52.00 | ▃▇▇▇▅ |
+| total_rooms              |         0 |          1.00 | 2635.76 | 2181.62 |    2.00 | 1447.75 | 2127.00 | 3148.00 | 39320.00 | ▇▁▁▁▁ |
+| total_bedrooms           |       207 |          0.99 |  537.87 |  421.39 |    1.00 |  296.00 |  435.00 |  647.00 |  6445.00 | ▇▁▁▁▁ |
+| population               |         0 |          1.00 | 1425.48 | 1132.46 |    3.00 |  787.00 | 1166.00 | 1725.00 | 35682.00 | ▇▁▁▁▁ |
+| households               |         0 |          1.00 |  499.54 |  382.33 |    1.00 |  280.00 |  409.00 |  605.00 |  6082.00 | ▇▁▁▁▁ |
+| median_income            |         0 |          1.00 |    3.87 |    1.90 |    0.50 |    2.56 |    3.53 |    4.74 |    15.00 | ▇▇▁▁▁ |
+| rooms_per_household      |         0 |          1.00 |    5.43 |    2.47 |    0.85 |    4.44 |    5.23 |    6.05 |   141.91 | ▇▁▁▁▁ |
+| bedrooms_per_room        |       207 |          0.99 |    0.21 |    0.06 |    0.10 |    0.18 |    0.20 |    0.24 |     1.00 | ▇▁▁▁▁ |
+| population_per_household |         0 |          1.00 |    3.08 |   10.39 |    1.00 |    2.00 |    3.00 |    3.00 |  1243.00 | ▇▁▁▁▁ |
+| 4                        |         0 |          1.00 |    4.00 |    0.00 |    4.00 |    4.00 |    4.00 |    4.00 |     4.00 | ▁▁▇▁▁ |
+
+### data overview with pariwise plots from `GGally`
+
+``` r
+housing_df |>
+  sample_n(1000) |> # sampling for script run time
+  select(housing_median_age, median_income, rooms_per_household,
+         ocean_proximity, price_category) |>
+  ggpairs()
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+### data splitting
+
+``` r
+set.seed(123)
+data_split = initial_split(housing_df, prop = 0.75, strata = price_category)
+train_data = training(data_split)
+test_data = testing(data_split)
+
+raw_counts = housing_df |>
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 4),
+         set = "raw")
+
+train_counts = train_data |>
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 4),
+         set = "train")
+
+test_counts = test_data |>
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 4),
+         set = "test")
+
+rbind(raw_counts, train_counts, test_counts) |>
+  ggplot(aes(price_category, prop)) +
+  geom_col(aes(fill = set), position = "dodge", alpha = 0.75) +
+  scale_fill_manual(values = c("#828BA8", "#99BF9E", "#B293BD")) +
+  theme_classic() +
+  labs(title = "`price_category` equally distributed among full, training, and testing data") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+
+``` r
+rm(raw_counts, train_counts, test_counts)
+```
+
+------------------------------------------------------------------------
+
+### break

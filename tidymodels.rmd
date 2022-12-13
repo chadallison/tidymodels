@@ -10,7 +10,10 @@ ___
 
 ```{r message = F, warning = F}
 library(tidyverse) # essential functions
+library(tidymodels) # essential for tidy modeling
 library(visdat) # visualising data class structure
+library(skimr) # data skimming
+library(GGally) # pairwise plots
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -24,6 +27,7 @@ ___
 ```{r}
 link = "https://raw.githubusercontent.com/kirenz/datasets/master/housing_unclean.csv"
 housing_df = read_csv(link, col_types = cols())
+rm(link)
 
 head(housing_df)
 ```
@@ -127,19 +131,65 @@ housing_df = housing_df |>
   select(-median_house_value)
 
 housing_df |>
-  count(price_category)
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 3))
 ```
 
 ___
 
-### xxx
+### data overview with `skimr`
 
+```{r}
+skim(housing_df)
+```
 
+### data overview with pariwise plots from `GGally`
 
+```{r message = F, warning = F}
+housing_df |>
+  sample_n(1000) |> # sampling for script run time
+  select(housing_median_age, median_income, rooms_per_household,
+         ocean_proximity, price_category) |>
+  ggpairs()
+```
 
+### data splitting
 
+```{r}
+set.seed(123)
+data_split = initial_split(housing_df, prop = 0.75, strata = price_category)
+train_data = training(data_split)
+test_data = testing(data_split)
 
+raw_counts = housing_df |>
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 4),
+         set = "raw")
 
+train_counts = train_data |>
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 4),
+         set = "train")
+
+test_counts = test_data |>
+  count(price_category) |>
+  mutate(prop = round(n / sum(n), 4),
+         set = "test")
+
+rbind(raw_counts, train_counts, test_counts) |>
+  ggplot(aes(price_category, prop)) +
+  geom_col(aes(fill = set), position = "dodge", alpha = 0.75) +
+  scale_fill_manual(values = c("#828BA8", "#99BF9E", "#B293BD")) +
+  theme_classic() +
+  labs(title = "`price_category` equally distributed among full, training, and testing data") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+rm(raw_counts, train_counts, test_counts)
+```
+
+___
+
+### break
 
 
 
