@@ -12,6 +12,7 @@ library(tidymodels) # essential for tidy modeling
 library(visdat) # visualising data class structure
 library(skimr) # data skimming
 library(GGally) # pairwise plots
+library(ggmap) # geographical visualisation
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -305,4 +306,15 @@ rm(raw_counts, train_counts, test_counts)
 
 ------------------------------------------------------------------------
 
-### break
+### geographical overview
+
+``` r
+data_explore = train_data # so we don't alter our data
+
+qmplot(x = longitude, y = latitude, data = data_explore,
+       geom = "point", col = price_category, size = population, alpha = 0.25) +
+  scale_alpha(guide = "none") +
+  scale_color_manual(values = c("#CA7575", "#91B7D8"))
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
