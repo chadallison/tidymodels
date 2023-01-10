@@ -17,6 +17,9 @@ library(ggmap) # geographical visualisation
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
 theme_set(theme_minimal())
+
+custom_red = "#FFCFCF"
+custom_green = "#B7D1B3"
 ```
 
 ------------------------------------------------------------------------
@@ -169,7 +172,7 @@ colSums(is.na(housing_df))
 housing_df = housing_df |>
   mutate(rooms_per_household = round(total_rooms / households, 4),
          bedrooms_per_room = round(total_bedrooms / total_rooms, 4),
-         population_per_household = round(population / households), 4)
+         population_per_household = round(population / households, 4))
 
 housing_df |>
   select(rooms_per_household, bedrooms_per_room, population_per_household) |>
@@ -179,12 +182,12 @@ housing_df |>
     ## # A tibble: 6 x 3
     ##   rooms_per_household bedrooms_per_room population_per_household
     ##                 <dbl>             <dbl>                    <dbl>
-    ## 1                6.98             0.147                        3
-    ## 2                6.24             0.156                        2
-    ## 3                8.29             0.130                        3
-    ## 4                5.82             0.184                        3
-    ## 5                6.28             0.172                        2
-    ## 6                4.76             0.232                        2
+    ## 1                6.98             0.147                     2.56
+    ## 2                6.24             0.156                     2.11
+    ## 3                8.29             0.130                     2.80
+    ## 4                5.82             0.184                     2.55
+    ## 5                6.28             0.172                     2.18
+    ## 6                4.76             0.232                     2.14
 
 ------------------------------------------------------------------------
 
@@ -220,11 +223,11 @@ skim(housing_df)
 |:-------------------------------------------------|:-----------|
 | Name                                             | housing_df |
 | Number of rows                                   | 20640      |
-| Number of columns                                | 14         |
+| Number of columns                                | 13         |
 | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_   |            |
 | Column type frequency:                           |            |
 | factor                                           | 2          |
-| numeric                                          | 12         |
+| numeric                                          | 11         |
 | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ |            |
 | Group variables                                  | None       |
 
@@ -251,8 +254,7 @@ Data summary
 | median_income            |         0 |          1.00 |    3.87 |    1.90 |    0.50 |    2.56 |    3.53 |    4.74 |    15.00 | ▇▇▁▁▁ |
 | rooms_per_household      |         0 |          1.00 |    5.43 |    2.47 |    0.85 |    4.44 |    5.23 |    6.05 |   141.91 | ▇▁▁▁▁ |
 | bedrooms_per_room        |       207 |          0.99 |    0.21 |    0.06 |    0.10 |    0.18 |    0.20 |    0.24 |     1.00 | ▇▁▁▁▁ |
-| population_per_household |         0 |          1.00 |    3.08 |   10.39 |    1.00 |    2.00 |    3.00 |    3.00 |  1243.00 | ▇▁▁▁▁ |
-| 4                        |         0 |          1.00 |    4.00 |    0.00 |    4.00 |    4.00 |    4.00 |    4.00 |     4.00 | ▁▁▇▁▁ |
+| population_per_household |         0 |          1.00 |    3.07 |   10.39 |    0.69 |    2.43 |    2.82 |    3.28 |  1243.33 | ▇▁▁▁▁ |
 
 ### data overview with pariwise plots from `GGally`
 
@@ -318,3 +320,168 @@ qmplot(x = longitude, y = latitude, data = data_explore,
 ```
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### exploring numeric variables
+
+``` r
+data_explore |>
+  ggplot(aes(price_category, median_income)) +
+  geom_boxplot(aes(fill = price_category),
+               outlier.alpha = 0.25, alpha = 0.5) +
+  scale_fill_manual(values = c("indianred3", "springgreen4"))
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+### creating function to print boxplot
+
+``` r
+print_boxplot = function(.y_var) {
+  y_var = sym(.y_var)
+  
+  data_explore |>
+    ggplot(aes(price_category, {{y_var}})) +
+    geom_boxplot(aes(fill = price_category), outlier.alpha = 0.25, alpha = 0.5) +
+    scale_fill_manual(values = c("indianred3", "springgreen4"))
+}
+```
+
+### obtaining numeric y-variables
+
+``` r
+y_var = data_explore |>
+  select(where(is.numeric), -longitude, -latitude) |>
+  variable.names()
+```
+
+### printing boxplots
+
+``` r
+map(y_var, print_boxplot)
+```
+
+    ## [[1]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+
+    ## 
+    ## [[2]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-2.png)<!-- -->
+
+    ## 
+    ## [[3]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-3.png)<!-- -->
+
+    ## 
+    ## [[4]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-4.png)<!-- -->
+
+    ## 
+    ## [[5]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-5.png)<!-- -->
+
+    ## 
+    ## [[6]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-6.png)<!-- -->
+
+    ## 
+    ## [[7]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-7.png)<!-- -->
+
+    ## 
+    ## [[8]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-8.png)<!-- -->
+
+    ## 
+    ## [[9]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-19-9.png)<!-- -->
+
+### re-creating function to filter some extreme cases
+
+``` r
+print_boxplot_out = function(.y_var_out) {
+  y_var = sym(.y_var_out)
+  
+  data_explore |>
+    filter(rooms_per_household < 50, population_per_household < 20) |>
+    ggplot(aes(price_category, {{y_var}})) +
+    geom_boxplot(aes(fill = price_category), alpha = 0.5, outlier.alpha = 0.25) +
+    scale_fill_manual(values = c("indianred3", "springgreen4"))
+}
+
+y_var_out = data_explore |>
+  select(rooms_per_household, population_per_household) |>
+  variable.names()
+
+map(y_var_out, print_boxplot_out)
+```
+
+    ## [[1]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+    ## 
+    ## [[2]]
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-20-2.png)<!-- -->
+
+### using \``ggscatmat` to create more pairwise plots
+
+``` r
+data_explore |>
+  select(price_category, median_income, bedrooms_per_room,
+         rooms_per_household, population_per_household) |>
+  ggscatmat(color = "price_category", corMethod = "spearman", alpha = 0.25) +
+  scale_color_manual(values = c("indianred3", "springgreen4"))
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+
+### exploring categorical variables
+
+``` r
+data_explore |>
+  filter(ocean_proximity != "ISLAND") |>
+  count(price_category, ocean_proximity) |>
+  group_by(price_category) |>
+  mutate(percent = n / sum(n) * 100,
+         percent = round(percent, 2),
+         percent = paste0(percent, "%")) |>
+  ggplot(aes(ocean_proximity, n)) +
+  geom_col(aes(fill = price_category), position = "dodge") +
+  geom_text(aes(label = percent), position = position_dodge2(width = 0.9), vjust = -0.5, size = 3.25) +
+  scale_fill_manual(values = c(custom_red, custom_green)) # this step is where i added these as variables
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+
+### creating heatmap
+
+``` r
+data_explore |>
+  ggplot(aes(price_category, ocean_proximity)) +
+  geom_bin2d() +
+  stat_bin2d(geom = "text", aes(label = ..count..)) +
+  scale_fill_continuous(type = "viridis")
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+
+### data preparation
+
+- handle missing values
+- fix or remove outliers
+- feature selection
+- feature engineering
+- feature scaling
+- create a validation set

@@ -19,6 +19,9 @@ library(ggmap) # geographical visualisation
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
 theme_set(theme_minimal())
+
+custom_red = "#FFCFCF"
+custom_green = "#B7D1B3"
 ```
 
 ___
@@ -113,7 +116,7 @@ ___
 housing_df = housing_df |>
   mutate(rooms_per_household = round(total_rooms / households, 4),
          bedrooms_per_room = round(total_bedrooms / total_rooms, 4),
-         population_per_household = round(population / households), 4)
+         population_per_household = round(population / households, 4))
 
 housing_df |>
   select(rooms_per_household, bedrooms_per_room, population_per_household) |>
@@ -200,6 +203,115 @@ qmplot(x = longitude, y = latitude, data = data_explore,
   scale_alpha(guide = "none") +
   scale_color_manual(values = c("#CA7575", "#91B7D8"))
 ```
+
+___
+
+### exploring numeric variables
+
+```{r}
+data_explore |>
+  ggplot(aes(price_category, median_income)) +
+  geom_boxplot(aes(fill = price_category),
+               outlier.alpha = 0.25, alpha = 0.5) +
+  scale_fill_manual(values = c("indianred3", "springgreen4"))
+```
+
+### creating function to print boxplot
+
+```{r}
+print_boxplot = function(.y_var) {
+  y_var = sym(.y_var)
+  
+  data_explore |>
+    ggplot(aes(price_category, {{y_var}})) +
+    geom_boxplot(aes(fill = price_category), outlier.alpha = 0.25, alpha = 0.5) +
+    scale_fill_manual(values = c("indianred3", "springgreen4"))
+}
+```
+
+### obtaining numeric y-variables
+
+```{r}
+y_var = data_explore |>
+  select(where(is.numeric), -longitude, -latitude) |>
+  variable.names()
+```
+
+### printing boxplots
+
+```{r warning = F}
+map(y_var, print_boxplot)
+```
+
+### re-creating function to filter some extreme cases
+
+```{r}
+print_boxplot_out = function(.y_var_out) {
+  y_var = sym(.y_var_out)
+  
+  data_explore |>
+    filter(rooms_per_household < 50, population_per_household < 20) |>
+    ggplot(aes(price_category, {{y_var}})) +
+    geom_boxplot(aes(fill = price_category), alpha = 0.5, outlier.alpha = 0.25) +
+    scale_fill_manual(values = c("indianred3", "springgreen4"))
+}
+
+y_var_out = data_explore |>
+  select(rooms_per_household, population_per_household) |>
+  variable.names()
+
+map(y_var_out, print_boxplot_out)
+```
+
+### using ``ggscatmat` to create more pairwise plots
+
+```{r warning = F}
+data_explore |>
+  select(price_category, median_income, bedrooms_per_room,
+         rooms_per_household, population_per_household) |>
+  ggscatmat(color = "price_category", corMethod = "spearman", alpha = 0.25) +
+  scale_color_manual(values = c("indianred3", "springgreen4"))
+```
+
+### exploring categorical variables
+
+```{r}
+data_explore |>
+  filter(ocean_proximity != "ISLAND") |>
+  count(price_category, ocean_proximity) |>
+  group_by(price_category) |>
+  mutate(percent = n / sum(n) * 100,
+         percent = round(percent, 2),
+         percent = paste0(percent, "%")) |>
+  ggplot(aes(ocean_proximity, n)) +
+  geom_col(aes(fill = price_category), position = "dodge") +
+  geom_text(aes(label = percent), position = position_dodge2(width = 0.9), vjust = -0.5, size = 3.25) +
+  scale_fill_manual(values = c(custom_red, custom_green)) # this step is where i added these as variables
+```
+
+### creating heatmap
+
+```{r}
+data_explore |>
+  ggplot(aes(price_category, ocean_proximity)) +
+  geom_bin2d() +
+  stat_bin2d(geom = "text", aes(label = ..count..)) +
+  scale_fill_continuous(type = "viridis")
+```
+
+### data preparation
+
+- handle missing values
+- fix or remove outliers
+- feature selection
+- feature engineering
+- feature scaling
+- create a validation set
+
+
+
+
+
 
 
 
