@@ -13,6 +13,8 @@ library(visdat) # visualising data class structure
 library(skimr) # data skimming
 library(GGally) # pairwise plots
 library(ggmap) # geographical visualisation
+library(ranger) # random forest
+library(keras) # neural network
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -477,7 +479,7 @@ data_explore |>
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
-### data preparation
+### data preparation steps
 
 - handle missing values
 - fix or remove outliers
@@ -485,3 +487,206 @@ data_explore |>
 - feature engineering
 - feature scaling
 - create a validation set
+
+### beginning data prep
+
+``` r
+housing_df_new = housing_df |>
+  select(longitude, latitude,
+         price_category, median_income, ocean_proximity,
+         bedrooms_per_room, rooms_per_household, population_per_household)
+
+glimpse(housing_df_new)
+```
+
+    ## Rows: 20,640
+    ## Columns: 8
+    ## $ longitude                <dbl> -122.23, -122.22, -122.24, -122.25, -122.25, ~
+    ## $ latitude                 <dbl> 37.88, 37.86, 37.85, 37.85, 37.85, 37.85, 37.~
+    ## $ price_category           <fct> above, above, above, above, above, above, abo~
+    ## $ median_income            <dbl> 8.3252, 8.3014, 7.2574, 5.6431, 3.8462, 4.036~
+    ## $ ocean_proximity          <fct> NEAR BAY, NEAR BAY, NEAR BAY, NEAR BAY, NEAR ~
+    ## $ bedrooms_per_room        <dbl> 0.1466, 0.1558, 0.1295, 0.1845, 0.1721, 0.231~
+    ## $ rooms_per_household      <dbl> 6.9841, 6.2381, 8.2881, 5.8174, 6.2819, 4.761~
+    ## $ population_per_household <dbl> 2.5556, 2.1098, 2.8023, 2.5479, 2.1815, 2.139~
+
+### making new data split
+
+``` r
+set.seed(123)
+data_split = initial_split(housing_df_new, prop = 3 / 4, strata = price_category)
+train_data = training(data_split)
+test_data = testing(data_split)
+
+paste0("training data: ", nrow(train_data), " observations")
+```
+
+    ## [1] "training data: 15480 observations"
+
+``` r
+paste0("testing data: ", nrow(test_data), " observations")
+```
+
+    ## [1] "testing data: 5160 observations"
+
+### creating preprocessing recipe
+
+``` r
+housing_rec = recipe(price_category ~ ., data = train_data) |>
+  update_role(longitude, latitude, new_role = "ID") |>
+  # log transforms our skewed data
+  step_log(median_income, bedrooms_per_room, rooms_per_household, population_per_household) |>
+  # removes any NAs
+  step_naomit(everything(), skip = T) |>
+  # converts nominal variables to factors
+  step_novel(all_nominal(), -all_outcomes()) |>
+  # normalizes numeric variables, z-standardization
+  step_normalize(all_numeric(), - all_outcomes(),
+                 -longitude, -latitude) |>
+  # converts `ocean_proximity` to numeric binary
+  step_dummy(all_nominal(), -all_outcomes()) |>
+  # removes numeric variables with zero variance
+  step_zv(all_numeric(), -all_outcomes()) |>
+  # removes predictor variables that are highly correlated with other predictor variables
+  step_corr(all_predictors(), threshold = 0.7, method = "spearman")
+
+summary(housing_rec)
+```
+
+    ## # A tibble: 8 x 4
+    ##   variable                 type    role      source  
+    ##   <chr>                    <chr>   <chr>     <chr>   
+    ## 1 longitude                numeric ID        original
+    ## 2 latitude                 numeric ID        original
+    ## 3 median_income            numeric predictor original
+    ## 4 ocean_proximity          nominal predictor original
+    ## 5 bedrooms_per_room        numeric predictor original
+    ## 6 rooms_per_household      numeric predictor original
+    ## 7 population_per_household numeric predictor original
+    ## 8 price_category           nominal outcome   original
+
+### checking out the prepped data
+
+``` r
+prepped_data = housing_rec |>
+  prep() |>
+  juice()
+
+glimpse(prepped_data)
+```
+
+    ## Rows: 15,325
+    ## Columns: 10
+    ## $ longitude                  <dbl> -122.23, -122.22, -122.24, -122.25, -122.25~
+    ## $ latitude                   <dbl> 37.88, 37.86, 37.85, 37.85, 37.85, 37.84, 3~
+    ## $ median_income              <dbl> 1.84205233775, 1.83600625624, 1.55216359856~
+    ## $ rooms_per_household        <dbl> 1.06763882, 0.65677817, 1.69027265, 0.68222~
+    ## $ population_per_household   <dbl> -0.3912991, -1.0997473, -0.0507250, -0.9762~
+    ## $ price_category             <fct> above, above, above, above, above, above, a~
+    ## $ ocean_proximity_INLAND     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+    ## $ ocean_proximity_ISLAND     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+    ## $ ocean_proximity_NEAR.BAY   <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1~
+    ## $ ocean_proximity_NEAR.OCEAN <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
+
+### visualising the numeric prepped data
+
+``` r
+prepped_data |>
+  select(price_category, median_income, rooms_per_household, population_per_household) |>
+  ggscatmat(corMethod = "spearman", alpha = 0.25)
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
+
+### cross-validation
+
+``` r
+set.seed(100)
+cv_folds = vfold_cv(train_data, v = 5, strata = price_category)
+# will come back to this after specifying models
+```
+
+### specifying models
+
+1.  pick a `model type`
+2.  set the `engine`
+3.  set the `mode` (regression or classification)
+
+### specifying logistic regression model
+
+``` r
+log_spec = logistic_reg() |> # model type
+  set_engine(engine = "glm") |> # model engine
+  set_mode("classification") # model mode
+
+log_spec
+```
+
+    ## Logistic Regression Model Specification (classification)
+    ## 
+    ## Computational engine: glm
+
+### specifying random forest model
+
+``` r
+rf_spec = rand_forest() |>
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("classification")
+
+rf_spec
+```
+
+    ## Random Forest Model Specification (classification)
+    ## 
+    ## Engine-Specific Arguments:
+    ##   importance = impurity
+    ## 
+    ## Computational engine: ranger
+
+### specifying boosted tree (XGBoost) model
+
+``` r
+xgb_spec = boost_tree() |>
+  set_engine("xgboost") |>
+  set_mode("classification")
+
+xgb_spec
+```
+
+    ## Boosted Tree Model Specification (classification)
+    ## 
+    ## Computational engine: xgboost
+
+### specifying k-nearest neighbor model
+
+``` r
+knn_spec = nearest_neighbor(neighbors = 4) |> # note that the number of neighbors can be specified
+  set_engine("kknn") |>
+  set_mode("classification")
+
+knn_spec
+```
+
+    ## K-Nearest Neighbor Model Specification (classification)
+    ## 
+    ## Main Arguments:
+    ##   neighbors = 4
+    ## 
+    ## Computational engine: kknn
+
+### specifying neural network model
+
+``` r
+nnet_spec = mlp() |>
+  set_mode("classification") |>
+  set_engine("keras", verbose = 0)
+
+nnet_spec
+```
+
+    ## Single Layer Neural Network Specification (classification)
+    ## 
+    ## Engine-Specific Arguments:
+    ##   verbose = 0
+    ## 
+    ## Computational engine: keras

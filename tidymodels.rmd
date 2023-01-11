@@ -15,6 +15,8 @@ library(visdat) # visualising data class structure
 library(skimr) # data skimming
 library(GGally) # pairwise plots
 library(ggmap) # geographical visualisation
+library(ranger) # random forest
+library(keras) # neural network
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -299,7 +301,7 @@ data_explore |>
   scale_fill_continuous(type = "viridis")
 ```
 
-### data preparation
+### data preparation steps
 
 - handle missing values
 - fix or remove outliers
@@ -307,6 +309,138 @@ data_explore |>
 - feature engineering
 - feature scaling
 - create a validation set
+
+### beginning data prep
+
+```{r}
+housing_df_new = housing_df |>
+  select(longitude, latitude,
+         price_category, median_income, ocean_proximity,
+         bedrooms_per_room, rooms_per_household, population_per_household)
+
+glimpse(housing_df_new)
+```
+
+### making new data split
+
+```{r}
+set.seed(123)
+data_split = initial_split(housing_df_new, prop = 3 / 4, strata = price_category)
+train_data = training(data_split)
+test_data = testing(data_split)
+
+paste0("training data: ", nrow(train_data), " observations")
+paste0("testing data: ", nrow(test_data), " observations")
+```
+
+### creating preprocessing recipe
+
+```{r}
+housing_rec = recipe(price_category ~ ., data = train_data) |>
+  update_role(longitude, latitude, new_role = "ID") |>
+  # log transforms our skewed data
+  step_log(median_income, bedrooms_per_room, rooms_per_household, population_per_household) |>
+  # removes any NAs
+  step_naomit(everything(), skip = T) |>
+  # converts nominal variables to factors
+  step_novel(all_nominal(), -all_outcomes()) |>
+  # normalizes numeric variables, z-standardization
+  step_normalize(all_numeric(), - all_outcomes(),
+                 -longitude, -latitude) |>
+  # converts `ocean_proximity` to numeric binary
+  step_dummy(all_nominal(), -all_outcomes()) |>
+  # removes numeric variables with zero variance
+  step_zv(all_numeric(), -all_outcomes()) |>
+  # removes predictor variables that are highly correlated with other predictor variables
+  step_corr(all_predictors(), threshold = 0.7, method = "spearman")
+
+summary(housing_rec)
+```
+
+### checking out the prepped data
+
+```{r}
+prepped_data = housing_rec |>
+  prep() |>
+  juice()
+
+glimpse(prepped_data)
+```
+
+### visualising the numeric prepped data
+
+```{r warning = F}
+prepped_data |>
+  select(price_category, median_income, rooms_per_household, population_per_household) |>
+  ggscatmat(corMethod = "spearman", alpha = 0.25)
+```
+
+### cross-validation
+
+```{r}
+set.seed(100)
+cv_folds = vfold_cv(train_data, v = 5, strata = price_category)
+# will come back to this after specifying models
+```
+
+### specifying models
+
+1. pick a `model type`
+2. set the `engine`
+3. set the `mode` (regression or classification)
+
+### specifying logistic regression model
+
+```{r}
+log_spec = logistic_reg() |> # model type
+  set_engine(engine = "glm") |> # model engine
+  set_mode("classification") # model mode
+
+log_spec
+```
+
+### specifying random forest model
+
+```{r}
+rf_spec = rand_forest() |>
+  set_engine("ranger", importance = "impurity") |>
+  set_mode("classification")
+
+rf_spec
+```
+
+### specifying boosted tree (XGBoost) model
+
+```{r}
+xgb_spec = boost_tree() |>
+  set_engine("xgboost") |>
+  set_mode("classification")
+
+xgb_spec
+```
+
+### specifying k-nearest neighbor model
+
+```{r}
+knn_spec = nearest_neighbor(neighbors = 4) |> # note that the number of neighbors can be specified
+  set_engine("kknn") |>
+  set_mode("classification")
+
+knn_spec
+```
+
+### specifying neural network model
+
+```{r}
+nnet_spec = mlp() |>
+  set_mode("classification") |>
+  set_engine("keras", verbose = 0)
+
+nnet_spec
+```
+
+
+
 
 
 
