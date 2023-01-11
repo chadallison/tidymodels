@@ -22,6 +22,7 @@ theme_set(theme_minimal())
 
 custom_red = "#FFCFCF"
 custom_green = "#B7D1B3"
+tictoc::tic()
 ```
 
 ------------------------------------------------------------------------
@@ -318,7 +319,7 @@ data_explore = train_data # so we don't alter our data
 qmplot(x = longitude, y = latitude, data = data_explore,
        geom = "point", col = price_category, size = population, alpha = 0.25) +
   scale_alpha(guide = "none") +
-  scale_color_manual(values = c("#CA7575", "#91B7D8"))
+  scale_color_manual(values = c("indianred3", "lightsteelblue3"))
 ```
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
@@ -441,6 +442,7 @@ map(y_var_out, print_boxplot_out)
 
 ``` r
 data_explore |>
+  sample_n(1000) |> # speed
   select(price_category, median_income, bedrooms_per_room,
          rooms_per_household, population_per_household) |>
   ggscatmat(color = "price_category", corMethod = "spearman", alpha = 0.25) +
@@ -592,6 +594,7 @@ glimpse(prepped_data)
 
 ``` r
 prepped_data |>
+  sample_n(1000) |> # speed
   select(price_category, median_income, rooms_per_household, population_per_household) |>
   ggscatmat(corMethod = "spearman", alpha = 0.25)
 ```
@@ -690,3 +693,191 @@ nnet_spec
     ##   verbose = 0
     ## 
     ## Computational engine: keras
+
+### creating logistic regression workflow
+
+``` r
+log_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(log_spec)
+
+log_wflow
+```
+
+    ## == Workflow ====================================================================
+    ## Preprocessor: Recipe
+    ## Model: logistic_reg()
+    ## 
+    ## -- Preprocessor ----------------------------------------------------------------
+    ## 7 Recipe Steps
+    ## 
+    ## * step_log()
+    ## * step_naomit()
+    ## * step_novel()
+    ## * step_normalize()
+    ## * step_dummy()
+    ## * step_zv()
+    ## * step_corr()
+    ## 
+    ## -- Model -----------------------------------------------------------------------
+    ## Logistic Regression Model Specification (classification)
+    ## 
+    ## Computational engine: glm
+
+### creating random forest workflow
+
+``` r
+rf_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(rf_spec)
+
+rf_wflow
+```
+
+    ## == Workflow ====================================================================
+    ## Preprocessor: Recipe
+    ## Model: rand_forest()
+    ## 
+    ## -- Preprocessor ----------------------------------------------------------------
+    ## 7 Recipe Steps
+    ## 
+    ## * step_log()
+    ## * step_naomit()
+    ## * step_novel()
+    ## * step_normalize()
+    ## * step_dummy()
+    ## * step_zv()
+    ## * step_corr()
+    ## 
+    ## -- Model -----------------------------------------------------------------------
+    ## Random Forest Model Specification (classification)
+    ## 
+    ## Engine-Specific Arguments:
+    ##   importance = impurity
+    ## 
+    ## Computational engine: ranger
+
+### creating XGBoost workflow
+
+``` r
+xgb_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(xgb_spec)
+
+xgb_wflow
+```
+
+    ## == Workflow ====================================================================
+    ## Preprocessor: Recipe
+    ## Model: boost_tree()
+    ## 
+    ## -- Preprocessor ----------------------------------------------------------------
+    ## 7 Recipe Steps
+    ## 
+    ## * step_log()
+    ## * step_naomit()
+    ## * step_novel()
+    ## * step_normalize()
+    ## * step_dummy()
+    ## * step_zv()
+    ## * step_corr()
+    ## 
+    ## -- Model -----------------------------------------------------------------------
+    ## Boosted Tree Model Specification (classification)
+    ## 
+    ## Computational engine: xgboost
+
+### creating k-nearest neighbor workflow
+
+``` r
+knn_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(knn_spec)
+
+knn_wflow
+```
+
+    ## == Workflow ====================================================================
+    ## Preprocessor: Recipe
+    ## Model: nearest_neighbor()
+    ## 
+    ## -- Preprocessor ----------------------------------------------------------------
+    ## 7 Recipe Steps
+    ## 
+    ## * step_log()
+    ## * step_naomit()
+    ## * step_novel()
+    ## * step_normalize()
+    ## * step_dummy()
+    ## * step_zv()
+    ## * step_corr()
+    ## 
+    ## -- Model -----------------------------------------------------------------------
+    ## K-Nearest Neighbor Model Specification (classification)
+    ## 
+    ## Main Arguments:
+    ##   neighbors = 4
+    ## 
+    ## Computational engine: kknn
+
+### creating neural network workflow
+
+``` r
+nnet_wflow = workflow() |>
+  add_recipe(housing_rec) |>
+  add_model(nnet_spec)
+
+nnet_wflow
+```
+
+    ## == Workflow ====================================================================
+    ## Preprocessor: Recipe
+    ## Model: mlp()
+    ## 
+    ## -- Preprocessor ----------------------------------------------------------------
+    ## 7 Recipe Steps
+    ## 
+    ## * step_log()
+    ## * step_naomit()
+    ## * step_novel()
+    ## * step_normalize()
+    ## * step_dummy()
+    ## * step_zv()
+    ## * step_corr()
+    ## 
+    ## -- Model -----------------------------------------------------------------------
+    ## Single Layer Neural Network Specification (classification)
+    ## 
+    ## Engine-Specific Arguments:
+    ##   verbose = 0
+    ## 
+    ## Computational engine: keras
+
+### evaluating logistic regression
+
+``` r
+log_res = log_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+log_res
+```
+
+    ## # Resampling results
+    ## # 5-fold cross-validation using stratification 
+    ## # A tibble: 5 x 5
+    ##   splits               id    .metrics         .notes           .predictions
+    ##   <list>               <chr> <list>           <list>           <list>      
+    ## 1 <split [12383/3097]> Fold1 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>    
+    ## 2 <split [12383/3097]> Fold2 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>    
+    ## 3 <split [12384/3096]> Fold3 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>    
+    ## 4 <split [12385/3095]> Fold4 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>    
+    ## 5 <split [12385/3095]> Fold5 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>
+
+``` r
+tictoc::toc()
+```
+
+    ## 23.22 sec elapsed
