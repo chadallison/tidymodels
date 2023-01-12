@@ -1,6 +1,6 @@
 ---
 title: "classification with tidymodels"
-author: "chad allison | 12 december 2022"
+author: "chad allison | 12 january 2023"
 output: github_document
 ---
 
@@ -17,6 +17,7 @@ library(GGally) # pairwise plots
 library(ggmap) # geographical visualisation
 library(ranger) # random forest
 library(keras) # neural network
+library(vip) # variable importance
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -150,15 +151,19 @@ ___
 skim(housing_df)
 ```
 
+___
+
 ### data overview with pariwise plots from `GGally`
 
 ```{r message = F, warning = F}
 housing_df |>
-  sample_n(1000) |> # sampling for script run time
+  sample_n(100) |> # sampling for script run time
   select(housing_median_age, median_income, rooms_per_household,
          ocean_proximity, price_category) |>
   ggpairs()
 ```
+
+___
 
 ### data splitting
 
@@ -219,6 +224,8 @@ data_explore |>
   scale_fill_manual(values = c("indianred3", "springgreen4"))
 ```
 
+___
+
 ### creating function to print boxplot
 
 ```{r}
@@ -232,6 +239,8 @@ print_boxplot = function(.y_var) {
 }
 ```
 
+___
+
 ### obtaining numeric y-variables
 
 ```{r}
@@ -240,11 +249,15 @@ y_var = data_explore |>
   variable.names()
 ```
 
+___
+
 ### printing boxplots
 
 ```{r warning = F}
 map(y_var, print_boxplot)
 ```
+
+___
 
 ### re-creating function to filter some extreme cases
 
@@ -266,16 +279,20 @@ y_var_out = data_explore |>
 map(y_var_out, print_boxplot_out)
 ```
 
+___
+
 ### using ``ggscatmat` to create more pairwise plots
 
 ```{r warning = F}
 data_explore |>
-  sample_n(1000) |> # speed
+  sample_n(100) |> # speed
   select(price_category, median_income, bedrooms_per_room,
          rooms_per_household, population_per_household) |>
   ggscatmat(color = "price_category", corMethod = "spearman", alpha = 0.25) +
   scale_color_manual(values = c("indianred3", "springgreen4"))
 ```
+
+___
 
 ### exploring categorical variables
 
@@ -293,6 +310,8 @@ data_explore |>
   scale_fill_manual(values = c(custom_red, custom_green)) # this step is where i added these as variables
 ```
 
+___
+
 ### creating heatmap
 
 ```{r}
@@ -303,6 +322,8 @@ data_explore |>
   scale_fill_continuous(type = "viridis")
 ```
 
+___
+
 ### data preparation steps
 
 - handle missing values
@@ -311,6 +332,8 @@ data_explore |>
 - feature engineering
 - feature scaling
 - create a validation set
+
+___
 
 ### beginning data prep
 
@@ -323,6 +346,8 @@ housing_df_new = housing_df |>
 glimpse(housing_df_new)
 ```
 
+___
+
 ### making new data split
 
 ```{r}
@@ -334,6 +359,8 @@ test_data = testing(data_split)
 paste0("training data: ", nrow(train_data), " observations")
 paste0("testing data: ", nrow(test_data), " observations")
 ```
+
+___
 
 ### creating preprocessing recipe
 
@@ -359,6 +386,8 @@ housing_rec = recipe(price_category ~ ., data = train_data) |>
 summary(housing_rec)
 ```
 
+___
+
 ### checking out the prepped data
 
 ```{r}
@@ -369,14 +398,18 @@ prepped_data = housing_rec |>
 glimpse(prepped_data)
 ```
 
+___
+
 ### visualising the numeric prepped data
 
 ```{r warning = F}
 prepped_data |>
-  sample_n(1000) |> # speed
+  sample_n(100) |> # speed
   select(price_category, median_income, rooms_per_household, population_per_household) |>
   ggscatmat(corMethod = "spearman", alpha = 0.25)
 ```
+
+___
 
 ### cross-validation
 
@@ -386,11 +419,15 @@ cv_folds = vfold_cv(train_data, v = 5, strata = price_category)
 # will come back to this after specifying models
 ```
 
+___
+
 ### specifying models
 
 1. pick a `model type`
 2. set the `engine`
 3. set the `mode` (regression or classification)
+
+___
 
 ### specifying logistic regression model
 
@@ -402,6 +439,8 @@ log_spec = logistic_reg() |> # model type
 log_spec
 ```
 
+___
+
 ### specifying random forest model
 
 ```{r}
@@ -411,6 +450,8 @@ rf_spec = rand_forest() |>
 
 rf_spec
 ```
+
+___
 
 ### specifying boosted tree (XGBoost) model
 
@@ -422,6 +463,8 @@ xgb_spec = boost_tree() |>
 xgb_spec
 ```
 
+___
+
 ### specifying k-nearest neighbor model
 
 ```{r}
@@ -431,6 +474,8 @@ knn_spec = nearest_neighbor(neighbors = 4) |> # note that the number of neighbor
 
 knn_spec
 ```
+
+___
 
 ### specifying neural network model
 
@@ -442,6 +487,8 @@ nnet_spec = mlp() |>
 nnet_spec
 ```
 
+___
+
 ### creating logistic regression workflow
 
 ```{r}
@@ -451,6 +498,8 @@ log_wflow = workflow() |>
 
 log_wflow
 ```
+
+___
 
 ### creating random forest workflow
 
@@ -462,6 +511,8 @@ rf_wflow = workflow() |>
 rf_wflow
 ```
 
+___
+
 ### creating XGBoost workflow
 
 ```{r}
@@ -471,6 +522,8 @@ xgb_wflow = workflow() |>
 
 xgb_wflow
 ```
+
+___
 
 ### creating k-nearest neighbor workflow
 
@@ -482,6 +535,8 @@ knn_wflow = workflow() |>
 knn_wflow
 ```
 
+___
+
 ### creating neural network workflow
 
 ```{r}
@@ -491,6 +546,8 @@ nnet_wflow = workflow() |>
 
 nnet_wflow
 ```
+
+___
 
 ### evaluating logistic regression
 
@@ -504,24 +561,302 @@ log_res = log_wflow |>
 log_res
 ```
 
+___
 
+### getting model coefficients
 
+```{r}
+get_model = function(x) {
+  pull_workflow_fit(x) |>
+    tidy()
+}
 
+log_res_2 = log_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T, extract = get_model))
 
+log_res_2$.extracts[[1]][[1]]
+```
 
+___
 
+### show all resample coefficients for a single predictor
 
+```{r}
+all_coef = map_dfr(log_res_2$.extracts, ~ .x[[1]][[1]])
+filter(all_coef, term == "median_income")
+```
 
+___
 
+### show average performance over all folds
 
+```{r}
+log_res |>
+  collect_metrics(summarise = T)
+```
 
+___
 
+### collecting predictions and printing confusion matrix
 
+```{r}
+log_pred = log_res |>
+  collect_predictions()
 
+log_pred |>
+  conf_mat(price_category, .pred_class)
+```
 
+___
 
+### visualising confusion matrix
 
+```{r}
+log_pred |>
+  conf_mat(price_category, .pred_class) |>
+  autoplot(type = "heatmap")
+```
 
+___
+
+### ROC curve
+
+```{r}
+log_pred |>
+  group_by(id) |> # id = folds
+  roc_curve(price_category, .pred_above) |>
+  autoplot()
+```
+
+___
+
+### probability distributions
+
+```{r}
+log_pred |>
+  ggplot(aes(.pred_above)) +
+  geom_density(aes(fill = price_category), alpha = 0.75) +
+  scale_fill_manual(values = c(custom_red, custom_green))
+```
+
+___
+
+### collecting random forest metrics
+
+```{r}
+rf_res = rf_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+rf_res |>
+  collect_metrics(summarise = T)
+```
+
+___
+
+### collecting XGBoost metrics
+
+```{r warning = F}
+xgb_res = xgb_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+xgb_res |>
+  collect_metrics(summarise = T)
+```
+
+___
+
+### collecting k-nearest neighbors metrics
+
+```{r warning = F}
+knn_res = knn_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+knn_res |>
+  collect_metrics(summarise = T)
+```
+
+___
+
+### collecting neural network metrics
+
+```{r}
+# nnet_res = nnet_wflow |>
+#   fit_resamples(resamples = cv_folds,
+#                 metrics = metric_set(recall, precision, f_meas,
+#                                      accuracy, kap, roc_auc, sens, spec),
+#                 control = control_resamples(save_pred = T))
+# 
+# nnet_res |>
+#   collect_metrics(summarise = T)
+```
+
+___
+
+### compare models
+
+```{r}
+log_metrics = log_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "logistic regression")
+
+rf_metrics = rf_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "random forest")
+
+xgb_metrics = xgb_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "xgboost")
+
+knn_metrics = knn_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "k-nearest neighbors")
+
+# nnet_metrics = nnet_res |>
+#   collect_metrics(summarise = T) |>
+#   mutate(model = "neural network")
+
+# create data frame with all the model results
+model_compare = bind_rows(log_metrics, rf_metrics, xgb_metrics, knn_metrics)
+```
+
+___
+
+### change data format & visualise F1 scores
+
+```{r}
+model_comp = model_compare |>
+  select(model, .metric, mean, std_err) |>
+  pivot_wider(names_from = .metric, values_from = c(mean, std_err))
+
+model_comp |>
+  arrange(mean_f_meas) |>
+  mutate(model = fct_reorder(model, mean_f_meas)) |>
+  ggplot(aes(model, mean_f_meas)) +
+  geom_col(aes(fill = model), alpha = 0.75) +
+  coord_flip() +
+  geom_text(aes(label = round(mean_f_meas, 3), y = mean_f_meas + 0.08),
+            vjust = 1, size = 3)
+```
+
+___
+
+### visualising mean area under curve per model
+
+```{r}
+model_comp |>
+  arrange(mean_roc_auc) |>
+  mutate(model = fct_reorder(model, mean_roc_auc)) |>
+  ggplot(aes(model, mean_roc_auc)) +
+  geom_col(aes(fill = model), alpha = 0.75) +
+  coord_flip() +
+  geom_text(aes(label = round(mean_roc_auc, 3),
+                y = mean_roc_auc + 0.08), vjust = 1, size = 3)
+```
+
+___
+
+### getting best model (based on F1 score)
+
+```{r}
+model_comp |>
+  slice_max(mean_f_meas)
+```
+
+___
+
+### last evaluation on test set
+
+```{r}
+last_fit_rf = last_fit(rf_wflow,
+                       split = data_split,
+                       metrics = metric_set(recall, precision, f_meas,
+                                            accuracy, kap, roc_auc, sens, spec))
+
+last_fit_rf |>
+  collect_metrics()
+```
+
+___
+
+### seeing how metrics compare to training evaluation
+
+```{r}
+train_eval = model_comp |>
+  slice_max(mean_f_meas) |>
+  pivot_longer(!model, names_to = "metric", values_to = "value") |>
+  filter(str_detect(metric, "mean")) |>
+  mutate(metric = str_remove_all(metric, "mean_"))
+
+test_eval = last_fit_rf |>
+  collect_metrics() |>
+  transmute(model = "random forest (test)",
+            metric = .metric,
+            value = .estimate)
+
+bind_rows(train_eval, test_eval) |>
+  mutate(model = ifelse(model == "random forest", "validation", "test")) |>
+  ggplot(aes(metric, value)) +
+  geom_col(aes(fill = model), position = "dodge") +
+  geom_text(aes(label = round(value, 3)),
+            position = position_dodge2(width = 1), size = 3, hjust = -0.25) +
+  coord_flip(ylim = c(0, 1)) +
+  scale_fill_manual(values = c("#98B1CF", "#7FB287")) +
+  labs(fill = "evaluation set", title = "metrics roughly the same; minimal overfitting") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+___
+
+### variable importance scores
+
+```{r}
+last_fit_rf |>
+  pluck(".workflow", 1) |>
+  pull_workflow_fit() |>
+  vip(num_features = 10)
+```
+
+___
+
+### final confusion matrix
+
+```{r}
+last_fit_rf |>
+  collect_predictions() |>
+  conf_mat(price_category, .pred_class) |>
+  autoplot(type = "heatmap")
+```
+
+___
+
+### final ROC curve
+
+```{r}
+last_fit_rf |>
+  collect_predictions() |>
+  roc_curve(price_category, .pred_above) |>
+  autoplot()
+```
+
+___
+
+all results indicate that the validation and test set performance metrics are very similar, which suggests the random forest model will perform well when predicting new out-of-sample data.
+
+___
+
+### total script runtime
 
 ```{r}
 tictoc::toc()

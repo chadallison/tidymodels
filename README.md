@@ -1,6 +1,6 @@
 classification with tidymodels
 ================
-chad allison \| 12 december 2022
+chad allison \| 12 january 2023
 
 ------------------------------------------------------------------------
 
@@ -15,6 +15,7 @@ library(GGally) # pairwise plots
 library(ggmap) # geographical visualisation
 library(ranger) # random forest
 library(keras) # neural network
+library(vip) # variable importance
 
 knitr::opts_chunk$set(message = F, warning = F)
 options(scipen = 999)
@@ -259,17 +260,21 @@ Data summary
 | bedrooms_per_room        |       207 |          0.99 |    0.21 |    0.06 |    0.10 |    0.18 |    0.20 |    0.24 |     1.00 | ▇▁▁▁▁ |
 | population_per_household |         0 |          1.00 |    3.07 |   10.39 |    0.69 |    2.43 |    2.82 |    3.28 |  1243.33 | ▇▁▁▁▁ |
 
+------------------------------------------------------------------------
+
 ### data overview with pariwise plots from `GGally`
 
 ``` r
 housing_df |>
-  sample_n(1000) |> # sampling for script run time
+  sample_n(100) |> # sampling for script run time
   select(housing_median_age, median_income, rooms_per_household,
          ocean_proximity, price_category) |>
   ggpairs()
 ```
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+
+------------------------------------------------------------------------
 
 ### data splitting
 
@@ -338,6 +343,8 @@ data_explore |>
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
+------------------------------------------------------------------------
+
 ### creating function to print boxplot
 
 ``` r
@@ -351,6 +358,8 @@ print_boxplot = function(.y_var) {
 }
 ```
 
+------------------------------------------------------------------------
+
 ### obtaining numeric y-variables
 
 ``` r
@@ -358,6 +367,8 @@ y_var = data_explore |>
   select(where(is.numeric), -longitude, -latitude) |>
   variable.names()
 ```
+
+------------------------------------------------------------------------
 
 ### printing boxplots
 
@@ -409,6 +420,8 @@ map(y_var, print_boxplot)
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-19-9.png)<!-- -->
 
+------------------------------------------------------------------------
+
 ### re-creating function to filter some extreme cases
 
 ``` r
@@ -438,11 +451,13 @@ map(y_var_out, print_boxplot_out)
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-20-2.png)<!-- -->
 
+------------------------------------------------------------------------
+
 ### using \``ggscatmat` to create more pairwise plots
 
 ``` r
 data_explore |>
-  sample_n(1000) |> # speed
+  sample_n(100) |> # speed
   select(price_category, median_income, bedrooms_per_room,
          rooms_per_household, population_per_household) |>
   ggscatmat(color = "price_category", corMethod = "spearman", alpha = 0.25) +
@@ -450,6 +465,8 @@ data_explore |>
 ```
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+
+------------------------------------------------------------------------
 
 ### exploring categorical variables
 
@@ -469,6 +486,8 @@ data_explore |>
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
+------------------------------------------------------------------------
+
 ### creating heatmap
 
 ``` r
@@ -481,6 +500,8 @@ data_explore |>
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
+------------------------------------------------------------------------
+
 ### data preparation steps
 
 - handle missing values
@@ -489,6 +510,8 @@ data_explore |>
 - feature engineering
 - feature scaling
 - create a validation set
+
+------------------------------------------------------------------------
 
 ### beginning data prep
 
@@ -512,6 +535,8 @@ glimpse(housing_df_new)
     ## $ rooms_per_household      <dbl> 6.9841, 6.2381, 8.2881, 5.8174, 6.2819, 4.761~
     ## $ population_per_household <dbl> 2.5556, 2.1098, 2.8023, 2.5479, 2.1815, 2.139~
 
+------------------------------------------------------------------------
+
 ### making new data split
 
 ``` r
@@ -530,6 +555,8 @@ paste0("testing data: ", nrow(test_data), " observations")
 ```
 
     ## [1] "testing data: 5160 observations"
+
+------------------------------------------------------------------------
 
 ### creating preprocessing recipe
 
@@ -567,6 +594,8 @@ summary(housing_rec)
     ## 7 population_per_household numeric predictor original
     ## 8 price_category           nominal outcome   original
 
+------------------------------------------------------------------------
+
 ### checking out the prepped data
 
 ``` r
@@ -590,16 +619,20 @@ glimpse(prepped_data)
     ## $ ocean_proximity_NEAR.BAY   <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1~
     ## $ ocean_proximity_NEAR.OCEAN <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0~
 
+------------------------------------------------------------------------
+
 ### visualising the numeric prepped data
 
 ``` r
 prepped_data |>
-  sample_n(1000) |> # speed
+  sample_n(100) |> # speed
   select(price_category, median_income, rooms_per_household, population_per_household) |>
   ggscatmat(corMethod = "spearman", alpha = 0.25)
 ```
 
 ![](tidymodels_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
+
+------------------------------------------------------------------------
 
 ### cross-validation
 
@@ -609,11 +642,15 @@ cv_folds = vfold_cv(train_data, v = 5, strata = price_category)
 # will come back to this after specifying models
 ```
 
+------------------------------------------------------------------------
+
 ### specifying models
 
 1.  pick a `model type`
 2.  set the `engine`
 3.  set the `mode` (regression or classification)
+
+------------------------------------------------------------------------
 
 ### specifying logistic regression model
 
@@ -628,6 +665,8 @@ log_spec
     ## Logistic Regression Model Specification (classification)
     ## 
     ## Computational engine: glm
+
+------------------------------------------------------------------------
 
 ### specifying random forest model
 
@@ -646,6 +685,8 @@ rf_spec
     ## 
     ## Computational engine: ranger
 
+------------------------------------------------------------------------
+
 ### specifying boosted tree (XGBoost) model
 
 ``` r
@@ -659,6 +700,8 @@ xgb_spec
     ## Boosted Tree Model Specification (classification)
     ## 
     ## Computational engine: xgboost
+
+------------------------------------------------------------------------
 
 ### specifying k-nearest neighbor model
 
@@ -677,6 +720,8 @@ knn_spec
     ## 
     ## Computational engine: kknn
 
+------------------------------------------------------------------------
+
 ### specifying neural network model
 
 ``` r
@@ -693,6 +738,8 @@ nnet_spec
     ##   verbose = 0
     ## 
     ## Computational engine: keras
+
+------------------------------------------------------------------------
 
 ### creating logistic regression workflow
 
@@ -723,6 +770,8 @@ log_wflow
     ## Logistic Regression Model Specification (classification)
     ## 
     ## Computational engine: glm
+
+------------------------------------------------------------------------
 
 ### creating random forest workflow
 
@@ -757,6 +806,8 @@ rf_wflow
     ## 
     ## Computational engine: ranger
 
+------------------------------------------------------------------------
+
 ### creating XGBoost workflow
 
 ``` r
@@ -786,6 +837,8 @@ xgb_wflow
     ## Boosted Tree Model Specification (classification)
     ## 
     ## Computational engine: xgboost
+
+------------------------------------------------------------------------
 
 ### creating k-nearest neighbor workflow
 
@@ -820,6 +873,8 @@ knn_wflow
     ## 
     ## Computational engine: kknn
 
+------------------------------------------------------------------------
+
 ### creating neural network workflow
 
 ``` r
@@ -853,6 +908,8 @@ nnet_wflow
     ## 
     ## Computational engine: keras
 
+------------------------------------------------------------------------
+
 ### evaluating logistic regression
 
 ``` r
@@ -876,8 +933,411 @@ log_res
     ## 4 <split [12385/3095]> Fold4 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>    
     ## 5 <split [12385/3095]> Fold5 <tibble [8 x 4]> <tibble [0 x 1]> <tibble>
 
+------------------------------------------------------------------------
+
+### getting model coefficients
+
+``` r
+get_model = function(x) {
+  pull_workflow_fit(x) |>
+    tidy()
+}
+
+log_res_2 = log_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T, extract = get_model))
+
+log_res_2$.extracts[[1]][[1]]
+```
+
+    ## NULL
+
+------------------------------------------------------------------------
+
+### show all resample coefficients for a single predictor
+
+``` r
+all_coef = map_dfr(log_res_2$.extracts, ~ .x[[1]][[1]])
+filter(all_coef, term == "median_income")
+```
+
+    ## # A tibble: 4 x 5
+    ##   term          estimate std.error statistic p.value
+    ##   <chr>            <dbl>     <dbl>     <dbl>   <dbl>
+    ## 1 median_income    -1.89    0.0468     -40.4       0
+    ## 2 median_income    -1.92    0.0469     -40.9       0
+    ## 3 median_income    -1.86    0.0460     -40.5       0
+    ## 4 median_income    -1.87    0.0461     -40.7       0
+
+------------------------------------------------------------------------
+
+### show average performance over all folds
+
+``` r
+log_res |>
+  collect_metrics(summarise = T)
+```
+
+    ## # A tibble: 8 x 6
+    ##   .metric   .estimator  mean     n std_err .config             
+    ##   <chr>     <chr>      <dbl> <int>   <dbl> <chr>               
+    ## 1 accuracy  binary     0.849     5 0.00254 Preprocessor1_Model1
+    ## 2 f_meas    binary     0.882     5 0.00210 Preprocessor1_Model1
+    ## 3 kap       binary     0.670     5 0.00536 Preprocessor1_Model1
+    ## 4 precision binary     0.870     5 0.00236 Preprocessor1_Model1
+    ## 5 recall    binary     0.894     5 0.00384 Preprocessor1_Model1
+    ## 6 roc_auc   binary     0.918     5 0.00275 Preprocessor1_Model1
+    ## 7 sens      binary     0.894     5 0.00384 Preprocessor1_Model1
+    ## 8 spec      binary     0.769     5 0.00502 Preprocessor1_Model1
+
+------------------------------------------------------------------------
+
+### collecting predictions and printing confusion matrix
+
+``` r
+log_pred = log_res |>
+  collect_predictions()
+
+log_pred |>
+  conf_mat(price_category, .pred_class)
+```
+
+    ##           Truth
+    ## Prediction above below
+    ##      above  8776  1308
+    ##      below  1037  4359
+
+------------------------------------------------------------------------
+
+### visualising confusion matrix
+
+``` r
+log_pred |>
+  conf_mat(price_category, .pred_class) |>
+  autoplot(type = "heatmap")
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-45-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### ROC curve
+
+``` r
+log_pred |>
+  group_by(id) |> # id = folds
+  roc_curve(price_category, .pred_above) |>
+  autoplot()
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-46-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### probability distributions
+
+``` r
+log_pred |>
+  ggplot(aes(.pred_above)) +
+  geom_density(aes(fill = price_category), alpha = 0.75) +
+  scale_fill_manual(values = c(custom_red, custom_green))
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-47-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### collecting random forest metrics
+
+``` r
+rf_res = rf_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+rf_res |>
+  collect_metrics(summarise = T)
+```
+
+    ## # A tibble: 8 x 6
+    ##   .metric   .estimator  mean     n std_err .config             
+    ##   <chr>     <chr>      <dbl> <int>   <dbl> <chr>               
+    ## 1 accuracy  binary     0.857     5 0.00223 Preprocessor1_Model1
+    ## 2 f_meas    binary     0.889     5 0.00185 Preprocessor1_Model1
+    ## 3 kap       binary     0.688     5 0.00464 Preprocessor1_Model1
+    ## 4 precision binary     0.876     5 0.00156 Preprocessor1_Model1
+    ## 5 recall    binary     0.902     5 0.00307 Preprocessor1_Model1
+    ## 6 roc_auc   binary     0.926     5 0.00166 Preprocessor1_Model1
+    ## 7 sens      binary     0.902     5 0.00307 Preprocessor1_Model1
+    ## 8 spec      binary     0.779     5 0.00308 Preprocessor1_Model1
+
+------------------------------------------------------------------------
+
+### collecting XGBoost metrics
+
+``` r
+xgb_res = xgb_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+xgb_res |>
+  collect_metrics(summarise = T)
+```
+
+    ## # A tibble: 8 x 6
+    ##   .metric   .estimator  mean     n std_err .config             
+    ##   <chr>     <chr>      <dbl> <int>   <dbl> <chr>               
+    ## 1 accuracy  binary     0.857     5 0.00332 Preprocessor1_Model1
+    ## 2 f_meas    binary     0.888     5 0.00272 Preprocessor1_Model1
+    ## 3 kap       binary     0.689     5 0.00697 Preprocessor1_Model1
+    ## 4 precision binary     0.879     5 0.00224 Preprocessor1_Model1
+    ## 5 recall    binary     0.897     5 0.00396 Preprocessor1_Model1
+    ## 6 roc_auc   binary     0.928     5 0.00205 Preprocessor1_Model1
+    ## 7 sens      binary     0.897     5 0.00396 Preprocessor1_Model1
+    ## 8 spec      binary     0.787     5 0.00402 Preprocessor1_Model1
+
+------------------------------------------------------------------------
+
+### collecting k-nearest neighbors metrics
+
+``` r
+knn_res = knn_wflow |>
+  fit_resamples(resamples = cv_folds,
+                metrics = metric_set(recall, precision, f_meas,
+                                     accuracy, kap, roc_auc, sens, spec),
+                control = control_resamples(save_pred = T))
+
+knn_res |>
+  collect_metrics(summarise = T)
+```
+
+    ## # A tibble: 8 x 6
+    ##   .metric   .estimator  mean     n std_err .config             
+    ##   <chr>     <chr>      <dbl> <int>   <dbl> <chr>               
+    ## 1 accuracy  binary     0.801     5 0.00232 Preprocessor1_Model1
+    ## 2 f_meas    binary     0.843     5 0.00192 Preprocessor1_Model1
+    ## 3 kap       binary     0.571     5 0.00519 Preprocessor1_Model1
+    ## 4 precision binary     0.843     5 0.00338 Preprocessor1_Model1
+    ## 5 recall    binary     0.842     5 0.00423 Preprocessor1_Model1
+    ## 6 roc_auc   binary     0.881     5 0.00326 Preprocessor1_Model1
+    ## 7 sens      binary     0.842     5 0.00423 Preprocessor1_Model1
+    ## 8 spec      binary     0.729     5 0.00770 Preprocessor1_Model1
+
+------------------------------------------------------------------------
+
+### collecting neural network metrics
+
+``` r
+# nnet_res = nnet_wflow |>
+#   fit_resamples(resamples = cv_folds,
+#                 metrics = metric_set(recall, precision, f_meas,
+#                                      accuracy, kap, roc_auc, sens, spec),
+#                 control = control_resamples(save_pred = T))
+# 
+# nnet_res |>
+#   collect_metrics(summarise = T)
+```
+
+------------------------------------------------------------------------
+
+### compare models
+
+``` r
+log_metrics = log_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "logistic regression")
+
+rf_metrics = rf_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "random forest")
+
+xgb_metrics = xgb_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "xgboost")
+
+knn_metrics = knn_res |>
+  collect_metrics(summarise = T) |>
+  mutate(model = "k-nearest neighbors")
+
+# nnet_metrics = nnet_res |>
+#   collect_metrics(summarise = T) |>
+#   mutate(model = "neural network")
+
+# create data frame with all the model results
+model_compare = bind_rows(log_metrics, rf_metrics, xgb_metrics, knn_metrics)
+```
+
+------------------------------------------------------------------------
+
+### change data format & visualise F1 scores
+
+``` r
+model_comp = model_compare |>
+  select(model, .metric, mean, std_err) |>
+  pivot_wider(names_from = .metric, values_from = c(mean, std_err))
+
+model_comp |>
+  arrange(mean_f_meas) |>
+  mutate(model = fct_reorder(model, mean_f_meas)) |>
+  ggplot(aes(model, mean_f_meas)) +
+  geom_col(aes(fill = model), alpha = 0.75) +
+  coord_flip() +
+  geom_text(aes(label = round(mean_f_meas, 3), y = mean_f_meas + 0.08),
+            vjust = 1, size = 3)
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-53-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### visualising mean area under curve per model
+
+``` r
+model_comp |>
+  arrange(mean_roc_auc) |>
+  mutate(model = fct_reorder(model, mean_roc_auc)) |>
+  ggplot(aes(model, mean_roc_auc)) +
+  geom_col(aes(fill = model), alpha = 0.75) +
+  coord_flip() +
+  geom_text(aes(label = round(mean_roc_auc, 3),
+                y = mean_roc_auc + 0.08), vjust = 1, size = 3)
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-54-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### getting best model (based on F1 score)
+
+``` r
+model_comp |>
+  slice_max(mean_f_meas)
+```
+
+    ## # A tibble: 1 x 17
+    ##   model  mean_~1 mean_~2 mean_~3 mean_~4 mean_~5 mean_~6 mean_~7 mean_~8 std_e~9
+    ##   <chr>    <dbl>   <dbl>   <dbl>   <dbl>   <dbl>   <dbl>   <dbl>   <dbl>   <dbl>
+    ## 1 rando~   0.857   0.889   0.688   0.876   0.902   0.926   0.902   0.779 0.00223
+    ## # ... with 7 more variables: std_err_f_meas <dbl>, std_err_kap <dbl>,
+    ## #   std_err_precision <dbl>, std_err_recall <dbl>, std_err_roc_auc <dbl>,
+    ## #   std_err_sens <dbl>, std_err_spec <dbl>, and abbreviated variable names
+    ## #   1: mean_accuracy, 2: mean_f_meas, 3: mean_kap, 4: mean_precision,
+    ## #   5: mean_recall, 6: mean_roc_auc, 7: mean_sens, 8: mean_spec,
+    ## #   9: std_err_accuracy
+
+------------------------------------------------------------------------
+
+### last evaluation on test set
+
+``` r
+last_fit_rf = last_fit(rf_wflow,
+                       split = data_split,
+                       metrics = metric_set(recall, precision, f_meas,
+                                            accuracy, kap, roc_auc, sens, spec))
+
+last_fit_rf |>
+  collect_metrics()
+```
+
+    ## # A tibble: 8 x 4
+    ##   .metric   .estimator .estimate .config             
+    ##   <chr>     <chr>          <dbl> <chr>               
+    ## 1 recall    binary         0.901 Preprocessor1_Model1
+    ## 2 precision binary         0.878 Preprocessor1_Model1
+    ## 3 f_meas    binary         0.889 Preprocessor1_Model1
+    ## 4 accuracy  binary         0.858 Preprocessor1_Model1
+    ## 5 kap       binary         0.691 Preprocessor1_Model1
+    ## 6 sens      binary         0.901 Preprocessor1_Model1
+    ## 7 spec      binary         0.783 Preprocessor1_Model1
+    ## 8 roc_auc   binary         0.928 Preprocessor1_Model1
+
+------------------------------------------------------------------------
+
+### seeing how metrics compare to training evaluation
+
+``` r
+train_eval = model_comp |>
+  slice_max(mean_f_meas) |>
+  pivot_longer(!model, names_to = "metric", values_to = "value") |>
+  filter(str_detect(metric, "mean")) |>
+  mutate(metric = str_remove_all(metric, "mean_"))
+
+test_eval = last_fit_rf |>
+  collect_metrics() |>
+  transmute(model = "random forest (test)",
+            metric = .metric,
+            value = .estimate)
+
+bind_rows(train_eval, test_eval) |>
+  mutate(model = ifelse(model == "random forest", "validation", "test")) |>
+  ggplot(aes(metric, value)) +
+  geom_col(aes(fill = model), position = "dodge") +
+  geom_text(aes(label = round(value, 3)),
+            position = position_dodge2(width = 1), size = 3, hjust = -0.25) +
+  coord_flip(ylim = c(0, 1)) +
+  scale_fill_manual(values = c("#98B1CF", "#7FB287")) +
+  labs(fill = "evaluation set", title = "metrics roughly the same; minimal overfitting") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-57-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### variable importance scores
+
+``` r
+last_fit_rf |>
+  pluck(".workflow", 1) |>
+  pull_workflow_fit() |>
+  vip(num_features = 10)
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-58-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### final confusion matrix
+
+``` r
+last_fit_rf |>
+  collect_predictions() |>
+  conf_mat(price_category, .pred_class) |>
+  autoplot(type = "heatmap")
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-59-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+### final ROC curve
+
+``` r
+last_fit_rf |>
+  collect_predictions() |>
+  roc_curve(price_category, .pred_above) |>
+  autoplot()
+```
+
+![](tidymodels_files/figure-gfm/unnamed-chunk-60-1.png)<!-- -->
+
+------------------------------------------------------------------------
+
+all results indicate that the validation and test set performance
+metrics are very similar, which suggests the random forest model will
+perform well when predicting new out-of-sample data.
+
+------------------------------------------------------------------------
+
+### total script runtime
+
 ``` r
 tictoc::toc()
 ```
 
-    ## 23.22 sec elapsed
+    ## 62.51 sec elapsed
