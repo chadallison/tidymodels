@@ -4,6 +4,96 @@ chad allison \| 12 january 2023
 
 ------------------------------------------------------------------------
 
+### contents
+
+- [loading required libraries and setting
+  options](#loading-required-libraries-and-setting-options)
+- [importing data](#importing-data)
+- [cleaning `housing_median_age` and
+  `median_house_value`](#cleaning-housing_median_age-and-median_house_value)
+- [viewing data structure](#viewing-data-structure)
+- [visualising data structure](#visualising-data-structure)
+- [exploring `ocean_proximity`
+  variable](#exploring-ocean_proximity-variable)
+- [reformatting variables](#reformatting-variables)
+- [checking missing data](#checking-missing-data)
+- [seeing exactly how many `NA` values we
+  have](#seeing-exactly-how-many-na-values-we-have)
+- [creating new variables](#creating-new-variables)
+- [creating dependent variable and dropping original numeric
+  variable](#creating-dependent-variable-and-dropping-original-numeric-variable)
+- [data overview with `skimr`](#data-overview-with-skimr)
+- [data overview with pairwise plots from
+  `GGally`](#data-overview-with-pairwise-plots-from-ggally)
+- [data splitting](#data-splitting)
+- [geographical overview](#geographical-overview)
+- [exploring numeric variables](#exploring-numeric-variables)
+- [creating function to print
+  boxplot](#creating-function-to-print-boxplot)
+- [obtaining numeric y-variables](#obtaining-numeric-y-variables)
+- [printing boxplots](#printing-boxplots)
+- [re-creating function to filter some extreme
+  cases](#re-creating-function-to-filter-some-extreme-cases)
+- [using `ggscatmat` to create more pairwise
+  plots](#using-ggscatmat-to-create-more-pairwise-plots)
+- [exploring categorical variables](#exploring-categorical-variables)
+- [creating heatmap](#creating-heatmap)
+- [data preparation steps](#data-preparation-steps)
+- [beginning data prep](#beginning-data-prep)
+- [making new data split](#making-new-data-split)
+- [creating preprocessing recipe](#creating-preprocessing-recipe)
+- [checking out the prepped data](#checking-out-the-prepped-data)
+- [visualising the numeric prepped
+  data](#visualising-the-numeric-prepped-data)
+- [cross-validation](#cross-validation)
+- [specifying models](#specifying-models)
+- [specifying logistic regression
+  model](#specifying-logistic-regression-model)
+- [specifying random forest model](#specifying-random-forest-model)
+- [specifying boosted tree (XGBoost)
+  model](#specifying-boosted-tree-xgboost-model)
+- [specifying k-nearest neighbor
+  model](#specifying-k-nearest-neighbor-model)
+- [specifying neural network model](#specifying-neural-network-model)
+- [creating logistic regression
+  workflow](#creating-logistic-regression-workflow)
+- [creating random forest workflow](#creating-random-forest-workflow)
+- [creating XGBoost workflow](#creating-xgboost-workflow)
+- [creating k-nearest neighbor
+  workflow](#creating-k-nearest-neighbor-workflow)
+- [creating neural network workflow](#creating-neural-network-workflow)
+- [evaluating logistic regression](#evaluating-logistic-regression)
+- [getting model coefficients](#getting-model-coefficients)
+- [show all resample coefficients for a single
+  predictor](#show-all-resample-coefficients-for-a-single-predictor)
+- [show average performance over all
+  folds](#show-average-performance-over-all-folds)
+- [collecting predictions and printing confusion
+  matrix](#collecting-predictions-and-printing-confusion-matrix)
+- [visualising confusion matrix](#visualising-confusion-matrix)
+- [ROC curve](#roc-curve)
+- [probability distributions](#probability-distributions)
+- [collecting random forest metrics](#collecting-random-forest-metrics)
+- [collecting XGBoost metrics](#collecting-xgboost-metrics)
+- [collecting k-nearest neighbors
+  metrics](#collecting-k-nearest-neighbors-metrics)
+- [collecting neural network
+  metrics](#collecting-neural-network-metrics)
+- [compare models](#compare-models)
+- [change data format & visualise F1
+  scores](#change-data-format-visualise-f1-scores)
+- [visualising mean area under curve per
+  model](#visualising-mean-area-under-curve-per-model)
+- [getting best model (based on F1
+  score)](#getting-best-model-based-on-f1-score)
+- [last evaluation on test set](#last-evaluation-on-test-set)
+- [seeing how metrics compare to training
+  evaluation](#seeing-how-metrics-compare-to-training-evaluation)
+- [variable importance scores](#variable-importance-scores)
+- [final confusion matrix](#final-confusion-matrix)
+- [final ROC curve](#final-roc-curve)
+- [total script runtime](#total-script-runtime)
+
 ### loading required libraries and setting options
 
 ``` r
@@ -262,7 +352,7 @@ Data summary
 
 ------------------------------------------------------------------------
 
-### data overview with pariwise plots from `GGally`
+### data overview with pairwise plots from `GGally`
 
 ``` r
 housing_df |>
@@ -453,7 +543,7 @@ map(y_var_out, print_boxplot_out)
 
 ------------------------------------------------------------------------
 
-### using \``ggscatmat` to create more pairwise plots
+### using `ggscatmat` to create more pairwise plots
 
 ``` r
 data_explore |>
@@ -583,16 +673,16 @@ summary(housing_rec)
 ```
 
     ## # A tibble: 8 x 4
-    ##   variable                 type    role      source  
-    ##   <chr>                    <chr>   <chr>     <chr>   
-    ## 1 longitude                numeric ID        original
-    ## 2 latitude                 numeric ID        original
-    ## 3 median_income            numeric predictor original
-    ## 4 ocean_proximity          nominal predictor original
-    ## 5 bedrooms_per_room        numeric predictor original
-    ## 6 rooms_per_household      numeric predictor original
-    ## 7 population_per_household numeric predictor original
-    ## 8 price_category           nominal outcome   original
+    ##   variable                 type      role      source  
+    ##   <chr>                    <list>    <chr>     <chr>   
+    ## 1 longitude                <chr [2]> ID        original
+    ## 2 latitude                 <chr [2]> ID        original
+    ## 3 median_income            <chr [2]> predictor original
+    ## 4 ocean_proximity          <chr [3]> predictor original
+    ## 5 bedrooms_per_room        <chr [2]> predictor original
+    ## 6 rooms_per_household      <chr [2]> predictor original
+    ## 7 population_per_household <chr [2]> predictor original
+    ## 8 price_category           <chr [3]> outcome   original
 
 ------------------------------------------------------------------------
 
@@ -1340,4 +1430,4 @@ perform well when predicting new out-of-sample data.
 tictoc::toc()
 ```
 
-    ## 62.51 sec elapsed
+    ## 64.25 sec elapsed

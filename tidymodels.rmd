@@ -6,6 +6,72 @@ output: github_document
 
 ___
 
+### contents
+- [loading required libraries and setting options]
+- [importing data]
+- [cleaning `housing_median_age` and `median_house_value`]
+- [viewing data structure]
+- [visualising data structure]
+- [exploring `ocean_proximity` variable]
+- [reformatting variables]
+- [checking missing data]
+- [seeing exactly how many `NA` values we have]
+- [creating new variables]
+- [creating dependent variable and dropping original numeric variable]
+- [data overview with `skimr`]
+- [data overview with pairwise plots from `GGally`]
+- [data splitting]
+- [geographical overview]
+- [exploring numeric variables]
+- [creating function to print boxplot]
+- [obtaining numeric y-variables]
+- [printing boxplots]
+- [re-creating function to filter some extreme cases]
+- [using `ggscatmat` to create more pairwise plots]
+- [exploring categorical variables]
+- [creating heatmap]
+- [data preparation steps]
+- [beginning data prep]
+- [making new data split]
+- [creating preprocessing recipe]
+- [checking out the prepped data]
+- [visualising the numeric prepped data]
+- [cross-validation]
+- [specifying models]
+- [specifying logistic regression model]
+- [specifying random forest model]
+- [specifying boosted tree (XGBoost) model]
+- [specifying k-nearest neighbor model]
+- [specifying neural network model]
+- [creating logistic regression workflow]
+- [creating random forest workflow]
+- [creating XGBoost workflow]
+- [creating k-nearest neighbor workflow]
+- [creating neural network workflow]
+- [evaluating logistic regression]
+- [getting model coefficients]
+- [show all resample coefficients for a single predictor]
+- [show average performance over all folds]
+- [collecting predictions and printing confusion matrix]
+- [visualising confusion matrix]
+- [ROC curve]
+- [probability distributions]
+- [collecting random forest metrics]
+- [collecting XGBoost metrics]
+- [collecting k-nearest neighbors metrics]
+- [collecting neural network metrics]
+- [compare models]
+- [change data format & visualise F1 scores]
+- [visualising mean area under curve per model]
+- [getting best model (based on F1 score)]
+- [last evaluation on test set]
+- [seeing how metrics compare to training evaluation]
+- [variable importance scores]
+- [final confusion matrix]
+- [final ROC curve]
+- [total script runtime]
+
+
 ### loading required libraries and setting options
 
 ```{r message = F, warning = F}
@@ -153,7 +219,7 @@ skim(housing_df)
 
 ___
 
-### data overview with pariwise plots from `GGally`
+### data overview with pairwise plots from `GGally`
 
 ```{r message = F, warning = F}
 housing_df |>
@@ -281,7 +347,7 @@ map(y_var_out, print_boxplot_out)
 
 ___
 
-### using ``ggscatmat` to create more pairwise plots
+### using `ggscatmat` to create more pairwise plots
 
 ```{r warning = F}
 data_explore |>
